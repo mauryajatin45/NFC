@@ -37,26 +37,29 @@ export default function ScanNFC() {
     setStatus(`Tag detected: ${nfcUid}`);
     localStorage.setItem("nfcUid", nfcUid);
     
-    // Get GPS
-    if ("geolocation" in navigator) {
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          const gps = {
-            lat: position.coords.latitude,
-            lng: position.coords.longitude,
-          };
-          localStorage.setItem("gps", JSON.stringify(gps));
-          navigate("/confirm");
-        },
-        (error) => {
-          console.error("GPS Error", error);
-          alert("Could not get GPS location. Proceeding anyway.");
-          navigate("/confirm");
-        }
-      );
-    } else {
-      navigate("/confirm");
-    }
+    // Small delay to ensure NFC session closes completely
+    setTimeout(() => {
+      // Get GPS
+      if ("geolocation" in navigator) {
+        navigator.geolocation.getCurrentPosition(
+          (position) => {
+            const gps = {
+              lat: position.coords.latitude,
+              lng: position.coords.longitude,
+            };
+            localStorage.setItem("gps", JSON.stringify(gps));
+            navigate("/confirm");
+          },
+          (error) => {
+            console.error("GPS Error", error);
+            alert("Could not get GPS location. Proceeding anyway.");
+            navigate("/confirm");
+          }
+        );
+      } else {
+        navigate("/confirm");
+      }
+    }, 500);
   };
 
   return (

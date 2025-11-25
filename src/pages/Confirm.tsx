@@ -74,10 +74,21 @@ export default function Confirm() {
         const uploadUrl = `${API_BASE}/api/photos/upload`;
         console.log("Fetching:", uploadUrl);
 
-        const response = await fetch(uploadUrl, {
-          method: "POST",
-          body: formData,
-        });
+        let response;
+        try {
+          response = await fetch(uploadUrl, {
+            method: "POST",
+            body: formData,
+          });
+        } catch (err) {
+          console.warn("First upload attempt failed, retrying...", err);
+          // Wait 1 second and retry
+          await new Promise(resolve => setTimeout(resolve, 1000));
+          response = await fetch(uploadUrl, {
+            method: "POST",
+            body: formData,
+          });
+        }
 
         console.log("Response status:", response.status);
         
