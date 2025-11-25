@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 
 export default function Confirm() {
@@ -38,9 +38,17 @@ export default function Confirm() {
     }
   };
 
+  useEffect(() => {
+    testConnectivity();
+  }, []);
+
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(event.target.files || []);
     
+    files.forEach(f => {
+      addLog(`Selected: ${f.name} (${(f.size / 1024 / 1024).toFixed(2)} MB)`);
+    });
+
     if (photos.length + files.length > 4) {
       alert("Maximum 4 photos allowed");
       return;
