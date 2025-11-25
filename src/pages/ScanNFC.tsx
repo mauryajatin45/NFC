@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 export default function ScanNFC() {
   const [status, setStatus] = useState("Ready to scan");
   const navigate = useNavigate();
+  const abortController = new AbortController();
 
   const startScan = async () => {
     if (!("NDEFReader" in window)) {
@@ -13,14 +14,20 @@ export default function ScanNFC() {
 
     try {
       const ndef = new (window as any).NDEFReader();
-      await ndef.scan();
+      await ndef.scan({ signal: abortController.signal });
       setStatus("Scanning...");
 
       ndef.onreading = (event: any) => {
         const serialNumber = event.serialNumber;
+        // Stop scanning immediately
+        abortController.abort();
         handleTagRead(serialNumber);
       };
-    } catch (error) {
+    } catch (error: any) {
+      if (error.name === 'AbortError') {
+        // Ignore abort errors (intentional stop)
+        return;
+      }
       console.error("Error starting NFC scan", error);
       setStatus("Error: " + error);
     }

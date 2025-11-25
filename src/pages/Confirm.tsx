@@ -105,13 +105,14 @@ export default function Confirm() {
     } catch (error: any) {
       console.error("Upload error:", error);
       
-      // More detailed error message
-      let errorMessage = error.message || "Upload failed";
-      if (error.message === "Failed to fetch") {
-        errorMessage = `Cannot reach server at ${API_BASE}. Check:\n1. Is the server running?\n2. Is the URL correct?\n3. CORS enabled?`;
-      }
+      // Detailed error for mobile debugging
+      const errorDetails = `
+        Error: ${error.name}
+        Message: ${error.message}
+        Stack: ${error.stack ? error.stack.substring(0, 100) : 'N/A'}
+      `;
       
-      alert("❌ Photo upload failed: " + errorMessage);
+      alert(`❌ Photo upload failed:\n${errorDetails}`);
     } finally {
       setUploadingPhotos(false);
     }
