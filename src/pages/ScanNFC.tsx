@@ -52,12 +52,6 @@ export default function ScanNFC() {
     }
   };
 
-  // FOR TESTING - Skip NFC scan
-  const handleSkipForTesting = () => {
-    const fakeUid = "TEST-" + Math.random().toString(36).substr(2, 9);
-    handleTagRead(fakeUid);
-  };
-
   return (
     <div className="card animate-fade-in">
       <div className="text-center">
@@ -84,15 +78,6 @@ export default function ScanNFC() {
 
       <button onClick={startScan} className="btn btn-primary">
         Start Scan
-      </button>
-      
-      {/* Testing button - remove in production */}
-      <button 
-        onClick={handleSkipForTesting} 
-        className="btn btn-secondary"
-        style={{ marginTop: '10px', background: '#ffc107', color: '#000' }}
-      >
-        🧪 Skip NFC (Testing Only)
       </button>
     </div>
   );
