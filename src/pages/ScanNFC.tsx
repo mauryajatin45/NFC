@@ -8,8 +8,6 @@ export default function ScanNFC() {
   const startScan = async () => {
     if (!("NDEFReader" in window)) {
       alert("NFC not supported on this device/browser");
-      // For testing on non-NFC devices, uncomment below:
-      // handleTagRead("04:FAKE:UID:123");
       return;
     }
 
@@ -54,6 +52,12 @@ export default function ScanNFC() {
     }
   };
 
+  // FOR TESTING - Skip NFC scan
+  const handleSkipForTesting = () => {
+    const fakeUid = "TEST-" + Math.random().toString(36).substr(2, 9);
+    handleTagRead(fakeUid);
+  };
+
   return (
     <div className="card animate-fade-in">
       <div className="text-center">
@@ -74,12 +78,21 @@ export default function ScanNFC() {
           {status}
         </div>
         <p style={{ color: 'var(--text-secondary)' }}>
-          Hold the product’s NFC tag near the back of the device.
+          Hold the product's NFC tag near the back of the device.
         </p>
       </div>
 
       <button onClick={startScan} className="btn btn-primary">
         Start Scan
+      </button>
+      
+      {/* Testing button - remove in production */}
+      <button 
+        onClick={handleSkipForTesting} 
+        className="btn btn-secondary"
+        style={{ marginTop: '10px', background: '#ffc107', color: '#000' }}
+      >
+        🧪 Skip NFC (Testing Only)
       </button>
     </div>
   );
