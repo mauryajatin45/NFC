@@ -42,34 +42,96 @@ export default function Confirm() {
     testConnectivity();
   }, []);
 
-  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const compressImage = async (file: File): Promise<File> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = (event) => {
+        const img = new Image();
+        img.src = event.target?.result as string;
+        img.onload = () => {
+          const canvas = document.createElement("canvas");
+          let width = img.width;
+          let height = img.height;
+          const MAX_WIDTH = 1024;
+          const MAX_HEIGHT = 1024;
+
+          if (width > height) {
+            if (width > MAX_WIDTH) {
+              height *= MAX_WIDTH / width;
+              width = MAX_WIDTH;
+            }
+          } else {
+            if (height > MAX_HEIGHT) {
+              width *= MAX_HEIGHT / height;
+              height = MAX_HEIGHT;
+            }
+          }
+
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext("2d");
+          ctx?.drawImage(img, 0, 0, width, height);
+
+          canvas.toBlob(
+            (blob) => {
+              if (blob) {
+                const compressedFile = new File([blob], file.name, {
+                  type: "image/jpeg",
+                  lastModified: Date.now(),
+                });
+                resolve(compressedFile);
+              } else {
+                reject(new Error("Compression failed"));
+              }
+            },
+            "image/jpeg",
+            0.7
+          );
+        };
+        img.onerror = (error) => reject(error);
+      };
+      reader.onerror = (error) => reject(error);
+    });
+  };
+
+  const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(event.target.files || []);
     
-    files.forEach(f => {
-      addLog(`Selected: ${f.name} (${(f.size / 1024 / 1024).toFixed(2)} MB)`);
-    });
-
     if (photos.length + files.length > 4) {
       alert("Maximum 4 photos allowed");
       return;
     }
 
-    // Preview photos
-    const newPhotos = [...photos, ...files].slice(0, 4);
-    setPhotos(newPhotos);
+    addLog(`Compressing ${files.length} photos...`);
+    
+    try {
+      const compressedFiles = await Promise.all(
+        files.map(async (f) => {
+          addLog(`Original: ${f.name} (${(f.size / 1024 / 1024).toFixed(2)} MB)`);
+          const compressed = await compressImage(f);
+          addLog(`Compressed: ${compressed.name} (${(compressed.size / 1024 / 1024).toFixed(2)} MB)`);
+          return compressed;
+        })
+      );
 
-    // Create previews
-    newPhotos.forEach((file, index) => {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setPhotoPreviews(prev => {
-          const updated = [...prev];
-          updated[index] = reader.result as string;
-          return updated;
-        });
-      };
-      reader.readAsDataURL(file);
-    });
+      // Preview photos
+      const newPhotos = [...photos, ...compressedFiles].slice(0, 4);
+      setPhotos(newPhotos);
+
+      // Create previews
+      compressedFiles.forEach((file) => {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          setPhotoPreviews(prev => [...prev, reader.result as string]);
+        };
+        reader.readAsDataURL(file);
+      });
+    } catch (error) {
+      console.error("Compression error:", error);
+      addLog("❌ Image compression failed");
+      alert("Failed to process images. Please try again.");
+    }
   };
 
   const removePhoto = (index: number) => {
