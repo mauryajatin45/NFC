@@ -58,19 +58,37 @@ export default function Confirm() {
     const hashes: string[] = [];
 
     try {
+      // Log the API URL for debugging
+      console.log("API_BASE:", API_BASE);
+      console.log("Upload URL:", `${API_BASE}/api/photos/upload`);
+      
       // Upload each photo sequentially
       for (let i = 0; i < photos.length; i++) {
+        console.log(`Uploading photo ${i + 1}/4...`);
+        
         const formData = new FormData();
         formData.append("photo", photos[i]);
         formData.append("orderId", orderId || "");
         formData.append("photoIndex", i.toString());
 
-        const response = await fetch(`${API_BASE}/api/photos/upload`, {
+        const uploadUrl = `${API_BASE}/api/photos/upload`;
+        console.log("Fetching:", uploadUrl);
+
+        const response = await fetch(uploadUrl, {
           method: "POST",
           body: formData,
         });
 
+        console.log("Response status:", response.status);
+        
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error("Server error:", errorText);
+          throw new Error(`Server returned ${response.status}: ${errorText}`);
+        }
+
         const result = await response.json();
+        console.log("Upload result:", result);
         
         if (!result.success) {
           throw new Error(result.error || "Upload failed");
@@ -85,8 +103,15 @@ export default function Confirm() {
       alert("✅ All photos uploaded successfully!");
 
     } catch (error: any) {
-      console.error(error);
-      alert("❌ Photo upload failed: " + error.message);
+      console.error("Upload error:", error);
+      
+      // More detailed error message
+      let errorMessage = error.message || "Upload failed";
+      if (error.message === "Failed to fetch") {
+        errorMessage = `Cannot reach server at ${API_BASE}. Check:\n1. Is the server running?\n2. Is the URL correct?\n3. CORS enabled?`;
+      }
+      
+      alert("❌ Photo upload failed: " + errorMessage);
     } finally {
       setUploadingPhotos(false);
     }
