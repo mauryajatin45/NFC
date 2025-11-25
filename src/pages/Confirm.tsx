@@ -13,7 +13,6 @@ export default function Confirm() {
   const orderId = localStorage.getItem("currentOrderId");
   const nfcUid = localStorage.getItem("nfcUid");
   const gps = JSON.parse(localStorage.getItem("gps") || "{}");
-  const mode = localStorage.getItem("mode");
 
   const API_BASE = import.meta.env.VITE_API_BASE_URL || "https://shopifyapp.terzettoo.com";
 
