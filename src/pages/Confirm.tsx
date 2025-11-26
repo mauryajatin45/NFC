@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 export default function Confirm() {
@@ -9,38 +9,12 @@ export default function Confirm() {
   const [photoPreviews, setPhotoPreviews] = useState<string[]>([]);
   const [photoUrls, setPhotoUrls] = useState<string[]>([]);
   const [photoHashes, setPhotoHashes] = useState<string[]>([]);
-  const [logs, setLogs] = useState<string[]>([]);
   
   const orderId = localStorage.getItem("currentOrderId");
   const nfcUid = localStorage.getItem("nfcUid");
   const gps = JSON.parse(localStorage.getItem("gps") || "{}");
 
   const API_BASE = import.meta.env.VITE_API_BASE_URL || "https://shopifyapp.terzettoo.com";
-
-  const addLog = (msg: string) => {
-    const time = new Date().toLocaleTimeString();
-    setLogs(prev => [`[${time}] ${msg}`, ...prev]);
-    console.log(msg);
-  };
-
-  const testConnectivity = async () => {
-    addLog(`Testing connectivity to: ${API_BASE}`);
-    try {
-      addLog("Sending OPTIONS request...");
-      const res = await fetch(`${API_BASE}/api/photos/upload`, { method: "OPTIONS" });
-      addLog(`Response status: ${res.status}`);
-      addLog(`Response ok: ${res.ok}`);
-      if (res.ok) alert("✅ Server is reachable!");
-      else alert(`⚠️ Server reachable but returned ${res.status}`);
-    } catch (e: any) {
-      addLog(`❌ Connection failed: ${e.name}: ${e.message}`);
-      alert(`❌ Connection failed: ${e.message}`);
-    }
-  };
-
-  useEffect(() => {
-    testConnectivity();
-  }, []);
 
   const compressImage = async (file: File): Promise<File> => {
     return new Promise((resolve, reject) => {
@@ -102,16 +76,11 @@ export default function Confirm() {
       alert("Maximum 4 photos allowed");
       return;
     }
-
-    addLog(`Compressing ${files.length} photos...`);
     
     try {
       const compressedFiles = await Promise.all(
         files.map(async (f) => {
-          addLog(`Original: ${f.name} (${(f.size / 1024 / 1024).toFixed(2)} MB)`);
-          const compressed = await compressImage(f);
-          addLog(`Compressed: ${compressed.name} (${(compressed.size / 1024 / 1024).toFixed(2)} MB)`);
-          return compressed;
+          return await compressImage(f);
         })
       );
 
@@ -129,7 +98,6 @@ export default function Confirm() {
       });
     } catch (error) {
       console.error("Compression error:", error);
-      addLog("❌ Image compression failed");
       alert("Failed to process images. Please try again.");
     }
   };
@@ -146,24 +114,18 @@ export default function Confirm() {
     }
 
     setUploadingPhotos(true);
-    addLog("Starting upload sequence...");
     const urls: string[] = [];
     const hashes: string[] = [];
 
     try {
-      addLog(`API_BASE: ${API_BASE}`);
-      
       // Upload each photo sequentially
       for (let i = 0; i < photos.length; i++) {
-        addLog(`Uploading photo ${i + 1}/4...`);
-        
         const formData = new FormData();
         formData.append("photo", photos[i]);
         formData.append("orderId", orderId || "");
         formData.append("photoIndex", i.toString());
 
         const uploadUrl = `${API_BASE}/api/photos/upload`;
-        addLog(`POST to: ${uploadUrl}`);
 
         let response;
         try {
@@ -171,26 +133,22 @@ export default function Confirm() {
             method: "POST",
             body: formData,
           });
-        } catch (err: any) {
-          addLog(`⚠️ Attempt 1 failed: ${err.message}`);
-          addLog("Retrying in 1s...");
+        } catch (err) {
+          console.warn("First upload attempt failed, retrying...", err);
+          // Wait 1 second and retry
           await new Promise(resolve => setTimeout(resolve, 1000));
           response = await fetch(uploadUrl, {
             method: "POST",
             body: formData,
           });
         }
-
-        addLog(`Response status: ${response.status}`);
         
         if (!response.ok) {
           const errorText = await response.text();
-          addLog(`Server error body: ${errorText.substring(0, 100)}`);
           throw new Error(`Server returned ${response.status}: ${errorText}`);
         }
 
         const result = await response.json();
-        addLog(`Upload success: ${result.success}`);
         
         if (!result.success) {
           throw new Error(result.error || "Upload failed");
@@ -202,11 +160,9 @@ export default function Confirm() {
 
       setPhotoUrls(urls);
       setPhotoHashes(hashes);
-      addLog("✅ All photos uploaded!");
       alert("✅ All photos uploaded successfully!");
 
     } catch (error: any) {
-      addLog(`❌ ERROR: ${error.name}: ${error.message}`);
       console.error("Upload error:", error);
       
       const errorDetails = `
@@ -228,7 +184,6 @@ export default function Confirm() {
     }
 
     setLoading(true);
-    addLog("Submitting enrollment...");
     try {
       // Generate NFC token
       const nfcToken = "token_" + Math.random().toString(36).substr(2, 9);
@@ -242,7 +197,6 @@ export default function Confirm() {
         shipping_address_gps: gps,
       };
 
-      addLog(`POST to /api/enroll`);
       const response = await fetch(`${API_BASE}/api/enroll`, {
         method: "POST",
         headers: {
@@ -251,11 +205,9 @@ export default function Confirm() {
         body: JSON.stringify(payload),
       });
 
-      addLog(`Enroll status: ${response.status}`);
       const result = await response.json();
       
       if (result.success) {
-        addLog(`✅ Success! Proof: ${result.proof_id}`);
         alert(`✅ Enrollment successful! Proof ID: ${result.proof_id}`);
         
         // Clear localStorage
@@ -265,11 +217,9 @@ export default function Confirm() {
         
         navigate("/home");
       } else {
-        addLog(`❌ Failed: ${result.error}`);
         alert("❌ Error: " + result.error);
       }
     } catch (error: any) {
-      addLog(`❌ Submit Error: ${error.message}`);
       console.error(error);
       alert("❌ Submission failed");
     } finally {
@@ -306,23 +256,6 @@ export default function Confirm() {
             {gps.lat?.toFixed(4)}, {gps.lng?.toFixed(4)}
           </span>
         </div>
-      </div>
-
-      {/* Debug Tools */}
-      <div style={{ marginBottom: '20px' }}>
-        <button 
-          onClick={testConnectivity}
-          className="btn"
-          style={{ 
-            width: '100%', 
-            background: '#4b5563', 
-            color: 'white',
-            fontSize: '14px',
-            padding: '8px'
-          }}
-        >
-          📡 Test Server Connectivity
-        </button>
       </div>
 
       {/* Photo Upload Section */}
@@ -447,29 +380,6 @@ export default function Confirm() {
         >
           ← Back to Scan
         </button>
-      </div>
-
-      {/* Debug Console */}
-      <div style={{
-        marginTop: '30px',
-        background: '#1e1e1e',
-        color: '#00ff00',
-        padding: '10px',
-        borderRadius: '8px',
-        fontSize: '10px',
-        fontFamily: 'monospace',
-        maxHeight: '200px',
-        overflowY: 'auto',
-        border: '1px solid #333'
-      }}>
-        <div style={{ borderBottom: '1px solid #333', marginBottom: '5px', paddingBottom: '5px', fontWeight: 'bold' }}>
-          🖥️ Debug Console
-        </div>
-        {logs.length === 0 ? (
-          <div style={{ color: '#666' }}>Logs will appear here...</div>
-        ) : (
-          logs.map((log, i) => <div key={i}>{log}</div>)
-        )}
       </div>
     </div>
   );
