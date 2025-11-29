@@ -9,7 +9,7 @@ export default function Confirm() {
   const [photoPreviews, setPhotoPreviews] = useState<string[]>([]);
   const [photoUrls, setPhotoUrls] = useState<string[]>([]);
   const [photoHashes, setPhotoHashes] = useState<string[]>([]);
-  
+
   const orderId = localStorage.getItem("currentOrderId");
   const nfcUid = localStorage.getItem("nfcUid");
   const gps = JSON.parse(localStorage.getItem("gps") || "{}");
@@ -71,12 +71,12 @@ export default function Confirm() {
 
   const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(event.target.files || []);
-    
+
     if (photos.length + files.length > 4) {
       alert("Maximum 4 photos allowed");
       return;
     }
-    
+
     try {
       const compressedFiles = await Promise.all(
         files.map(async (f) => {
@@ -142,14 +142,14 @@ export default function Confirm() {
             body: formData,
           });
         }
-        
+
         if (!response.ok) {
           const errorText = await response.text();
           throw new Error(`Server returned ${response.status}: ${errorText}`);
         }
 
         const result = await response.json();
-        
+
         if (!result.success) {
           throw new Error(result.error || "Upload failed");
         }
@@ -164,13 +164,13 @@ export default function Confirm() {
 
     } catch (error: any) {
       console.error("Upload error:", error);
-      
+
       const errorDetails = `
         Error: ${error.name}
         Message: ${error.message}
         Stack: ${error.stack ? error.stack.substring(0, 100) : 'N/A'}
       `;
-      
+
       alert(`❌ Photo upload failed:\n${errorDetails}`);
     } finally {
       setUploadingPhotos(false);
@@ -185,13 +185,10 @@ export default function Confirm() {
 
     setLoading(true);
     try {
-      // Generate NFC token
-      const nfcToken = "token_" + Math.random().toString(36).substr(2, 9);
-      
+      // Server will convert serial number to UID and Token (deterministic)
       const payload = {
         order_id: orderId,
-        nfc_uid: nfcUid,
-        nfc_token: nfcToken,
+        serial_number: nfcUid,  // This is the NFC serial number from scan
         photo_urls: photoUrls,
         photo_hashes: photoHashes,
         shipping_address_gps: gps,
@@ -206,15 +203,15 @@ export default function Confirm() {
       });
 
       const result = await response.json();
-      
+
       if (result.success) {
         alert(`✅ Enrollment successful! Proof ID: ${result.proof_id}`);
-        
+
         // Clear localStorage
         localStorage.removeItem("currentOrderId");
         localStorage.removeItem("nfcUid");
         localStorage.removeItem("gps");
-        
+
         navigate("/home");
       } else {
         alert("❌ Error: " + result.error);
@@ -243,15 +240,15 @@ export default function Confirm() {
         marginBottom: '20px'
       }}>
         <div style={{ marginBottom: '8px' }}>
-          <strong style={{ color: 'var(--text-primary)' }}>Order:</strong> 
+          <strong style={{ color: 'var(--text-primary)' }}>Order:</strong>
           <span style={{ float: 'right', color: 'var(--text-secondary)' }}>{orderId}</span>
         </div>
         <div style={{ marginBottom: '8px' }}>
-          <strong style={{ color: 'var(--text-primary)' }}>NFC UID:</strong> 
+          <strong style={{ color: 'var(--text-primary)' }}>NFC UID:</strong>
           <span style={{ float: 'right', color: 'var(--text-secondary)' }}>{nfcUid}</span>
         </div>
         <div>
-          <strong style={{ color: 'var(--text-primary)' }}>Location:</strong> 
+          <strong style={{ color: 'var(--text-primary)' }}>Location:</strong>
           <span style={{ float: 'right', color: 'var(--text-secondary)' }}>
             {gps.lat?.toFixed(4)}, {gps.lng?.toFixed(4)}
           </span>
@@ -263,27 +260,27 @@ export default function Confirm() {
         <h3 style={{ marginBottom: '12px', fontSize: '16px', fontWeight: '600' }}>
           📸 Upload 4 Photos {photos.length > 0 && `(${photos.length}/4)`}
         </h3>
-        
+
         {/* Photo Previews */}
         {photoPreviews.length > 0 && (
-          <div style={{ 
-            display: 'grid', 
-            gridTemplateColumns: 'repeat(2, 1fr)', 
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(2, 1fr)',
             gap: '10px',
             marginBottom: '12px'
           }}>
             {photoPreviews.map((preview, index) => (
               <div key={index} style={{ position: 'relative' }}>
-                <img 
-                  src={preview} 
-                  alt={`Photo ${index + 1}`} 
-                  style={{ 
-                    width: '100%', 
-                    height: '120px', 
-                    objectFit: 'cover', 
+                <img
+                  src={preview}
+                  alt={`Photo ${index + 1}`}
+                  style={{
+                    width: '100%',
+                    height: '120px',
+                    objectFit: 'cover',
                     borderRadius: '8px',
                     border: '2px solid var(--border-color)'
-                  }} 
+                  }}
                 />
                 <button
                   onClick={() => removePhoto(index)}
@@ -347,9 +344,9 @@ export default function Confirm() {
 
         {/* Success indicator */}
         {photoUrls.length === 4 && (
-          <div style={{ 
-            padding: '12px', 
-            background: '#d1fae5', 
+          <div style={{
+            padding: '12px',
+            background: '#d1fae5',
             borderRadius: '6px',
             textAlign: 'center',
             color: '#065f46',
@@ -362,19 +359,19 @@ export default function Confirm() {
 
       {/* Submit Button */}
       <div className="form-group mt-4">
-        <button 
-          onClick={handleSubmit} 
-          disabled={loading || photoUrls.length !== 4} 
+        <button
+          onClick={handleSubmit}
+          disabled={loading || photoUrls.length !== 4}
           className="btn btn-primary"
-          style={{ 
+          style={{
             width: '100%',
             opacity: photoUrls.length !== 4 ? 0.5 : 1
           }}
         >
           {loading ? "Enrolling..." : "✅ Complete Enrollment"}
         </button>
-        <button 
-          onClick={() => navigate("/scan")} 
+        <button
+          onClick={() => navigate("/scan")}
           className="btn btn-secondary"
           style={{ width: '100%', marginTop: '10px' }}
         >
