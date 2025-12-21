@@ -9,9 +9,13 @@ declare global {
         nfcBridge?: {
           postMessage: (message: string) => void;
         };
+        nfcWriteBridge?: {
+          postMessage: (message: string) => void;
+        };
       };
     };
     handleIOSScan?: (nfcUid: string) => void;
+    handleIOSWriteResult?: (success: boolean, error?: string) => void;
   }
 }
 

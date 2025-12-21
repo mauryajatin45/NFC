@@ -2,10 +2,12 @@ import UIKit
 import WebKit
 import CoreNFC
 
-class ViewController: UIViewController, WKScriptMessageHandler, NFCNDEFReaderSessionDelegate {
+class ViewController: UIViewController, WKScriptMessageHandler, NFCTagReaderSessionDelegate {
 
     var webView: WKWebView!
-    var nfcSession: NFCNDEFReaderSession?
+    var tagSession: NFCTagReaderSession?
+    var urlToWrite: String? // Store URL for NFC writing
+    var isWriteMode: Bool = false // Track if we're in write mode
     
     // URL of your hosted web app (or local IP for testing)
     // IMPORTANT: Change this to your actual deployed URL or local IP
@@ -14,9 +16,10 @@ class ViewController: UIViewController, WKScriptMessageHandler, NFCNDEFReaderSes
     override func viewDidLoad() {
         super.viewDidLoad()
         
-        // 1. Setup WebView with Bridge
+        // 1. Setup WebView with Bridges
         let contentController = WKUserContentController()
-        contentController.add(self, name: "nfcBridge") // Listen for "window.webkit.messageHandlers.nfcBridge"
+        contentController.add(self, name: "nfcBridge") // Listen for NFC reading
+        contentController.add(self, name: "nfcWriteBridge") // Listen for NFC writing
         
         let config = WKWebViewConfiguration()
         config.userContentController = contentController
@@ -39,65 +42,163 @@ class ViewController: UIViewController, WKScriptMessageHandler, NFCNDEFReaderSes
             if body == "startScan" {
                 startNFCScan()
             }
+        } else if message.name == "nfcWriteBridge", let urlString = message.body as? String {
+            // Received URL to write to NFC tag
+            startNFCWrite(url: urlString)
         }
     }
 
-    // MARK: - NFC Scanning
+    // MARK: - NFC Scanning (Read Mode)
     func startNFCScan() {
-        guard NFCNDEFReaderSession.readingAvailable else {
+        guard NFCTagReaderSession.readingAvailable else {
             print("NFC not available")
             return
         }
         
-        // Create session
-        nfcSession = NFCNDEFReaderSession(delegate: self, queue: nil, invalidateAfterFirstRead: true)
-        nfcSession?.alertMessage = "Hold your iPhone near the tag to scan."
-        nfcSession?.begin()
+        isWriteMode = false
+        tagSession = NFCTagReaderSession(pollingOption: .iso14443, delegate: self)
+        tagSession?.alertMessage = "Hold your iPhone near the tag to scan."
+        tagSession?.begin()
     }
     
-    // NFC Delegate: Error/Invalidation
-    func readerSession(_ session: NFCNDEFReaderSession, didInvalidateWithError error: Error) {
+    // MARK: - NFC Writing (Write Mode)
+    func startNFCWrite(url: String) {
+        guard NFCTagReaderSession.readingAvailable else {
+            sendWriteResult(success: false, error: "NFC not available on this device")
+            return
+        }
+        
+        isWriteMode = true
+        urlToWrite = url
+        tagSession = NFCTagReaderSession(pollingOption: .iso14443, delegate: self)
+        tagSession?.alertMessage = "Hold iPhone near the tag to write."
+        tagSession?.begin()
+    }
+    
+    // MARK: - NFCTagReaderSessionDelegate
+    
+    func tagReaderSessionDidBecomeActive(_ session: NFCTagReaderSession) {
+        print("NFC session became active")
+    }
+    
+    func tagReaderSession(_ session: NFCTagReaderSession, didInvalidateWithError error: Error) {
         print("NFC Session Invalidated: \(error.localizedDescription)")
     }
     
-    // NFC Delegate: Did Detect Tags
-    func readerSession(_ session: NFCNDEFReaderSession, didDetectNDEFs messages: [NFCNDEFMessage]) {
-        // We only care about the first message of the first tag
-        guard let message = messages.first, let record = message.records.first else { return }
+    func tagReaderSession(_ session: NFCTagReaderSession, didDetect tags: [NFCTag]) {
+        guard let tag = tags.first else {
+            session.invalidate(errorMessage: "No tag detected")
+            return
+        }
         
-        // In this specific app, we are looking for the Tag UID (Serial Number).
-        // Standard NDEF messages don't always contain the UID in the payload.
-        // However, CoreNFC's `didDetectNDEFs` is high-level. 
-        // To get the UID specifically, we usually need `didDetect tags` (CoreNFC TagReaderSession), 
-        // but for simplicity and standard NDEF tags, we might just read the payload text.
-        
-        // NOTE: If you strictly need the hardware UID (like Android's event.serialNumber),
-        // we need to use `NFCTagReaderSession` instead of `NFCNDEFReaderSession`.
-        // But for now, let's assume we are reading NDEF data or that the user wants the payload.
-        
-        // If the user specifically needs the UID (Serial Number), we must switch to NFCTagReaderSession.
-        // Let's implement a quick payload read for now, assuming the tag has data.
-        
-        // If the requirement is strictly "Same as Android Web NFC event.serialNumber", 
-        // we actually need `NFCTagReaderSession`. 
-        // Let's stick to NDEF for now as it's easier, but I will add a comment.
-        
-        let payload = String(data: record.payload, encoding: .utf8) ?? ""
-        print("Scanned payload: \(payload)")
-        
-        // Send back to Web View
-        // We'll send the payload as the "UID" for now, or a dummy UID if empty.
-        // In a real scenario, use NFCTagReaderSession to get tag.identifier.
-        
-        let result = payload // Or tag.identifier.map { String(format: "%02hhx", $0) }.joined()
-        
-        DispatchQueue.main.async {
-            self.sendDataToWeb(data: result)
+        // Connect to the tag
+        session.connect(to: tag) { error in
+            if let error = error {
+                session.invalidate(errorMessage: "Connection error: \(error.localizedDescription)")
+                if self.isWriteMode {
+                    self.sendWriteResult(success: false, error: error.localizedDescription)
+                }
+                return
+            }
+            
+            // Check if it's an NDEF tag
+            guard case let .miFare(mifareTag) = tag else {
+                session.invalidate(errorMessage: "Unsupported tag type")
+                if self.isWriteMode {
+                    self.sendWriteResult(success: false, error: "Unsupported tag type")
+                }
+                return
+            }
+            
+            if self.isWriteMode {
+                // WRITE MODE: Write URL to tag
+                self.writeToTag(session: session, tag: mifareTag)
+            } else {
+                // READ MODE: Get tag UID
+                self.readFromTag(session: session, tag: mifareTag)
+            }
         }
     }
     
+    // MARK: - Read Tag UID
+    func readFromTag(session: NFCTagReaderSession, tag: NFCMiFareTag) {
+        // Get the actual hardware UID (like Android's serialNumber)
+        let tagIdentifier = tag.identifier
+        let uidString = tagIdentifier.map { String(format: "%02x", $0) }.joined(separator: ":")
+        
+        print("✅ Tag UID: \(uidString)")
+        
+        session.alertMessage = "✅ Tag scanned!"
+        session.invalidate()
+        
+        // Send UID to web app
+        DispatchQueue.main.async {
+            self.sendDataToWeb(data: uidString)
+        }
+    }
+    
+    // MARK: - Write to Tag
+    func writeToTag(session: NFCTagReaderSession, tag: NFCMiFareTag) {
+        guard let urlString = self.urlToWrite else {
+            session.invalidate(errorMessage: "No URL to write")
+            sendWriteResult(success: false, error: "No URL specified")
+            return
+        }
+        
+        // Query NDEF status
+        tag.queryNDEFStatus { status, capacity, error in
+            if let error = error {
+                session.invalidate(errorMessage: "NDEF query failed")
+                self.sendWriteResult(success: false, error: error.localizedDescription)
+                return
+            }
+            
+            // Check if tag is writable
+            guard status == .readWrite else {
+                session.invalidate(errorMessage: "Tag is not writable")
+                self.sendWriteResult(success: false, error: "Tag is read-only or not formatted")
+                return
+            }
+            
+            // Create NDEF URI payload
+            guard let payload = NFCNDEFPayload.wellKnownTypeURIPayload(string: urlString) else {
+                session.invalidate(errorMessage: "Invalid URL format")
+                self.sendWriteResult(success: false, error: "Invalid URL format")
+                return
+            }
+            
+            let message = NFCNDEFMessage(records: [payload])
+            
+            // Write to tag
+            tag.writeNDEF(message) { error in
+                if let error = error {
+                    session.invalidate(errorMessage: "Write failed: \(error.localizedDescription)")
+                    self.sendWriteResult(success: false, error: error.localizedDescription)
+                } else {
+                    session.alertMessage = "✅ Write successful!"
+                    session.invalidate()
+                    self.sendWriteResult(success: true, error: nil)
+                }
+            }
+        }
+        
+        // Clear URL after write attempt
+        self.urlToWrite = nil
+        self.isWriteMode = false
+    }
+    
+    // MARK: - Send Results to Web
     func sendDataToWeb(data: String) {
         let js = "window.handleIOSScan('\(data)');"
         webView.evaluateJavaScript(js, completionHandler: nil)
+    }
+    
+    func sendWriteResult(success: Bool, error: String?) {
+        DispatchQueue.main.async {
+            let successStr = success ? "true" : "false"
+            let errorParam = error != nil ? ", '\(error!)'" : ""
+            let js = "window.handleIOSWriteResult(\(successStr)\(errorParam));"
+            self.webView.evaluateJavaScript(js, completionHandler: nil)
+        }
     }
 }

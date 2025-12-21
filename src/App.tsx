@@ -4,6 +4,7 @@ import Home from "./pages/Home";
 import SelectOrder from "./pages/SelectOrder";
 import ScanNFC from "./pages/ScanNFC";
 import Confirm from "./pages/Confirm";
+import WriteNFC from "./pages/WriteNFC";
 import TestConnection from "./pages/TestConnection";
 import "./App.css";
 
@@ -18,6 +19,7 @@ function App() {
             <Route path="/order/select" element={<SelectOrder />} />
             <Route path="/scan" element={<ScanNFC />} />
             <Route path="/confirm" element={<Confirm />} />
+            <Route path="/write" element={<WriteNFC />} />
             <Route path="/test" element={<TestConnection />} />
             <Route path="/" element={<Navigate to="/login" replace />} />
           </Routes>

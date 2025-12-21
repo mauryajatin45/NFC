@@ -207,12 +207,13 @@ export default function Confirm() {
       if (result.success) {
         alert(`✅ Enrollment successful! Proof ID: ${result.proof_id}`);
 
-        // Clear localStorage
-        localStorage.removeItem("currentOrderId");
-        localStorage.removeItem("nfcUid");
-        localStorage.removeItem("gps");
+        // Store token for NFC writing step
+        if (result.token) {
+          localStorage.setItem("nfcToken", result.token);
+        }
 
-        navigate("/home");
+        // Navigate to NFC write screen (don't clear localStorage yet)
+        navigate("/write");
       } else {
         alert("❌ Error: " + result.error);
       }
