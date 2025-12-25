@@ -2,37 +2,69 @@ import UIKit
 import WebKit
 import CoreNFC
 
-class ViewController: UIViewController, WKScriptMessageHandler, NFCTagReaderSessionDelegate {
+// Added WKNavigationDelegate to handle loading errors
+class ViewController: UIViewController, WKScriptMessageHandler, NFCTagReaderSessionDelegate, WKNavigationDelegate {
 
     var webView: WKWebView!
     var tagSession: NFCTagReaderSession?
     var urlToWrite: String? // Store URL for NFC writing
     var isWriteMode: Bool = false // Track if we're in write mode
     
-    // URL of your hosted web app (or local IP for testing)
-    // IMPORTANT: Change this to your actual deployed URL or local IP
-    let webAppUrl = "https://your-web-app-url.com/login" 
+    // URL of your hosted web app
+    let webAppUrl = "https://nfc-indol.vercel.app/"
 
     override func viewDidLoad() {
         super.viewDidLoad()
         
-        // 1. Setup WebView with Bridges
+        // --- 1. CONFIGURATION ---
         let contentController = WKUserContentController()
-        contentController.add(self, name: "nfcBridge") // Listen for NFC reading
+        contentController.add(self, name: "nfcBridge")      // Listen for NFC reading
         contentController.add(self, name: "nfcWriteBridge") // Listen for NFC writing
         
         let config = WKWebViewConfiguration()
         config.userContentController = contentController
         
-        webView = WKWebView(frame: view.bounds, configuration: config)
-        webView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+        // --- 2. SETUP WEBVIEW WITH AUTO LAYOUT ---
+        webView = WKWebView(frame: .zero, configuration: config)
+        
+        // Enable Debug Logging
+        webView.navigationDelegate = self
+        
+        // Turn off manual frame sizing (Auto Layout)
+        webView.translatesAutoresizingMaskIntoConstraints = false
+        
+        // --- 3. DARK MODE FIX (Force White Background) ---
+        // This ensures the screen isn't black even if the website is transparent
+        view.backgroundColor = .white
+        webView.backgroundColor = .white
+        webView.isOpaque = false
+        
+        // Add to view
         view.addSubview(webView)
         
-        // 2. Load the Web App
+        // --- 4. CONSTRAINTS (Fill Screen) ---
+        NSLayoutConstraint.activate([
+            webView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor), // Use Safe Area
+            webView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
+            webView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            webView.trailingAnchor.constraint(equalTo: view.trailingAnchor)
+        ])
+        
+        // --- 5. LOAD APP ---
+        print("🚀 Attempting to load: \(webAppUrl)")
         if let url = URL(string: webAppUrl) {
             let request = URLRequest(url: url)
             webView.load(request)
         }
+    }
+
+    // MARK: - WKNavigationDelegate (Debug Logs)
+    func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+        print("✅ WEBVIEW LOADED SUCCESSFULLY")
+    }
+    
+    func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
+        print("❌ WEBVIEW FAILED TO LOAD: \(error.localizedDescription)")
     }
 
     // MARK: - WKScriptMessageHandler
@@ -122,7 +154,7 @@ class ViewController: UIViewController, WKScriptMessageHandler, NFCTagReaderSess
     
     // MARK: - Read Tag UID
     func readFromTag(session: NFCTagReaderSession, tag: NFCMiFareTag) {
-        // Get the actual hardware UID (like Android's serialNumber)
+        // Get the actual hardware UID
         let tagIdentifier = tag.identifier
         let uidString = tagIdentifier.map { String(format: "%02x", $0) }.joined(separator: ":")
         
