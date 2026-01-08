@@ -226,7 +226,7 @@ export default function Confirm() {
   };
 
   return (
-    <div className="card animate-fade-in">
+    <div className="card animate-fade-in" style={{ marginTop: '20px' }}>
       <div className="text-center">
         <h1 className="header-title">Package Enrollment</h1>
         <p className="header-subtitle">Upload photos and confirm details</p>
@@ -234,151 +234,144 @@ export default function Confirm() {
 
       {/* Order Details */}
       <div className="details" style={{
-        background: '#f9fafb',
+        background: 'var(--ink-off-white)',
         padding: '16px',
-        borderRadius: '8px',
-        border: '1px solid var(--border-color)',
+        borderRadius: 'var(--radius-md)',
+        border: '1px solid var(--ink-border)',
         marginBottom: '20px'
       }}>
         <div style={{ marginBottom: '8px' }}>
-          <strong style={{ color: 'var(--text-primary)' }}>Order:</strong>
-          <span style={{ float: 'right', color: 'var(--text-secondary)' }}>{orderId}</span>
+          <strong style={{ color: 'var(--ink-black)' }}>Order:</strong>
+          <span style={{ float: 'right', color: 'var(--ink-gray-dark)' }}>{orderId}</span>
         </div>
         <div style={{ marginBottom: '8px' }}>
-          <strong style={{ color: 'var(--text-primary)' }}>NFC UID:</strong>
-          <span style={{ float: 'right', color: 'var(--text-secondary)' }}>{nfcUid}</span>
-        </div>
-        <div>
-          <strong style={{ color: 'var(--text-primary)' }}>Location:</strong>
-          <span style={{ float: 'right', color: 'var(--text-secondary)' }}>
-            {gps.lat?.toFixed(4)}, {gps.lng?.toFixed(4)}
-          </span>
-        </div>
-      </div>
-
-      {/* Photo Upload Section */}
-      <div style={{ marginBottom: '20px' }}>
-        <h3 style={{ marginBottom: '12px', fontSize: '16px', fontWeight: '600' }}>
-          📸 Upload 4 Photos {photos.length > 0 && `(${photos.length}/4)`}
-        </h3>
-
-        {/* Photo Previews */}
-        {photoPreviews.length > 0 && (
-          <div style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(2, 1fr)',
-            gap: '10px',
-            marginBottom: '12px'
-          }}>
-            {photoPreviews.map((preview, index) => (
-              <div key={index} style={{ position: 'relative' }}>
-                <img
-                  src={preview}
-                  alt={`Photo ${index + 1}`}
-                  style={{
-                    width: '100%',
-                    height: '120px',
-                    objectFit: 'cover',
-                    borderRadius: '8px',
-                    border: '2px solid var(--border-color)'
-                  }}
-                />
-                <button
-                  onClick={() => removePhoto(index)}
-                  style={{
-                    position: 'absolute',
-                    top: '5px',
-                    right: '5px',
-                    background: 'rgba(255, 0, 0, 0.8)',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: '50%',
-                    width: '25px',
-                    height: '25px',
-                    cursor: 'pointer',
-                    fontSize: '14px'
-                  }}
-                >
-                  ×
-                </button>
-              </div>
-            ))}
+            <strong style={{ color: 'var(--ink-black)' }}>NFC UID:</strong>
+            <span style={{ float: 'right', color: 'var(--ink-gray-dark)' }}>{nfcUid}</span>
           </div>
-        )}
-
-        {/* Upload Button */}
-        {photos.length < 4 && (
           <div>
-            <input
-              type="file"
-              accept="image/*"
-              capture="environment"
-              multiple
-              id="photo-input"
-              style={{ display: 'none' }}
-              onChange={handleFileSelect}
-            />
-            <label htmlFor="photo-input">
-              <button
-                className="btn btn-secondary"
-                onClick={() => document.getElementById('photo-input')?.click()}
-                type="button"
-                style={{ width: '100%' }}
-              >
-                📷 Take/Select Photos ({photos.length}/4)
-              </button>
-            </label>
+            <strong style={{ color: 'var(--ink-black)' }}>Location:</strong>
+            <span style={{ float: 'right', color: 'var(--ink-gray-dark)' }}>
+              {gps.lat?.toFixed(4)}, {gps.lng?.toFixed(4)}
+            </span>
           </div>
-        )}
+        </div>
 
-        {/* Upload to Server Button */}
-        {photos.length === 4 && photoUrls.length === 0 && (
+        {/* Photo Upload Section */}
+        <div style={{ marginBottom: '20px' }}>
+          <h3 style={{ marginBottom: '12px', fontSize: '16px', fontWeight: '600' }}>
+            📸 Upload 4 Photos {photos.length > 0 && `(${photos.length}/4)`}
+          </h3>
+
+          {/* Photo Previews */}
+          {photoPreviews.length > 0 && (
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(2, 1fr)',
+              gap: '10px',
+              marginBottom: '12px'
+            }}>
+              {photoPreviews.map((preview, index) => (
+                <div key={index} style={{ position: 'relative' }}>
+                  <img
+                    src={preview}
+                    alt={`Photo ${index + 1}`}
+                    style={{
+                      width: '100%',
+                      height: '120px',
+                      objectFit: 'cover',
+                      borderRadius: 'var(--radius-md)',
+                      border: '2px solid var(--ink-border)'
+                    }}
+                  />
+                  <button
+                    onClick={() => removePhoto(index)}
+                    style={{
+                      position: 'absolute',
+                      top: '5px',
+                      right: '5px',
+                      background: 'rgba(0, 0, 0, 0.7)',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '50%',
+                      width: '25px',
+                      height: '25px',
+                      cursor: 'pointer',
+                      fontSize: '14px'
+                    }}
+                  >
+                    ×
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Upload Button */}
+          {photos.length < 4 && (
+            <div>
+              <input
+                type="file"
+                accept="image/*"
+                capture="environment"
+                multiple
+                id="photo-input"
+                style={{ display: 'none' }}
+                onChange={handleFileSelect}
+              />
+              <label htmlFor="photo-input">
+                <button
+                  className="btn btn-secondary"
+                  onClick={() => document.getElementById('photo-input')?.click()}
+                  type="button"
+                  style={{ width: '100%' }}
+                >
+                  📷 Take/Select Photos ({photos.length}/4)
+                </button>
+              </label>
+            </div>
+          )}
+
+          {/* Upload to Server Button */}
+          {photos.length === 4 && photoUrls.length === 0 && (
+            <button
+              onClick={handleUploadPhotos}
+              disabled={uploadingPhotos}
+              className="btn btn-primary"
+              style={{ width: '100%' }}
+            >
+              {uploadingPhotos ? "Uploading..." : "☁️ Upload Photos to Server"}
+            </button>
+          )}
+
+          {/* Success indicator */}
+          {photoUrls.length === 4 && (
+            <div className="status-message status-success">
+              ✅ All photos uploaded successfully!
+            </div>
+          )}
+        </div>
+
+        {/* Submit Button */}
+        <div className="form-group mt-4">
           <button
-            onClick={handleUploadPhotos}
-            disabled={uploadingPhotos}
+            onClick={handleSubmit}
+            disabled={loading || photoUrls.length !== 4}
             className="btn btn-primary"
-            style={{ width: '100%' }}
+            style={{
+              width: '100%',
+              opacity: photoUrls.length !== 4 ? 0.5 : 1
+            }}
           >
-            {uploadingPhotos ? "Uploading..." : "☁️ Upload Photos to Server"}
+            {loading ? "Enrolling..." : "✅ Complete Enrollment"}
           </button>
-        )}
-
-        {/* Success indicator */}
-        {photoUrls.length === 4 && (
-          <div style={{
-            padding: '12px',
-            background: '#d1fae5',
-            borderRadius: '6px',
-            textAlign: 'center',
-            color: '#065f46',
-            fontWeight: '600'
-          }}>
-            ✅ All photos uploaded successfully!
-          </div>
-        )}
+          <button
+            onClick={() => navigate("/scan")}
+            className="btn btn-secondary"
+            style={{ width: '100%', marginTop: '10px' }}
+          >
+            ← Back to Scan
+          </button>
+        </div>
       </div>
-
-      {/* Submit Button */}
-      <div className="form-group mt-4">
-        <button
-          onClick={handleSubmit}
-          disabled={loading || photoUrls.length !== 4}
-          className="btn btn-primary"
-          style={{
-            width: '100%',
-            opacity: photoUrls.length !== 4 ? 0.5 : 1
-          }}
-        >
-          {loading ? "Enrolling..." : "✅ Complete Enrollment"}
-        </button>
-        <button
-          onClick={() => navigate("/scan")}
-          className="btn btn-secondary"
-          style={{ width: '100%', marginTop: '10px' }}
-        >
-          ← Back to Scan
-        </button>
-      </div>
-    </div>
   );
 }

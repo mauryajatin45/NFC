@@ -113,53 +113,46 @@ export default function ScanNFC() {
   };
 
   return (
-    <div className="card animate-fade-in">
+    <div className="card animate-fade-in" style={{ marginTop: '20px' }}>
       <div className="text-center">
-        <h1 className="header-title">Tap NFC Tag</h1>
-        <p className="header-subtitle">Hold device near the tag</p>
+        <h1 className="header-title">Scan NFC Tag</h1>
+        <p className="header-subtitle">Hold device near the tag to read</p>
       </div>
-      
-      <div className="text-center mb-4">
-        <div className="status" style={{ 
-          fontSize: '18px', 
-          fontWeight: '600', 
-          color: 'var(--primary-color)',
-          padding: '20px',
-          background: '#f0f9ff',
-          borderRadius: '8px',
-          marginBottom: '16px'
+        <div className="scan-area" style={{ 
+          borderColor: scanSuccess ? 'var(--ink-black)' : 'var(--ink-border)'
         }}>
-          {status}
+          <div className="scan-icon">
+            {scanSuccess ? '✅' : '📱'}
+          </div>
+          <div className="status-message status-info" style={{
+            background: scanSuccess ? '#f0fdf4' : 'var(--ink-off-white)',
+            color: scanSuccess ? '#166534' : 'var(--ink-black)',
+            borderColor: scanSuccess ? '#bbf7d0' : 'var(--ink-border)'
+          }}>
+            {status}
+          </div>
         </div>
-        <p style={{ color: 'var(--text-secondary)' }}>
+        
+        <p className="text-center" style={{ color: 'var(--ink-gray-dark)', fontSize: '14px' }}>
           {isIOSWrapper 
             ? "Tap 'Start Scan' and hold iPhone near the tag." 
             : "Hold the product's NFC tag near the back of the device."}
         </p>
-      </div>
 
-      {!scanSuccess ? (
-        <button onClick={startScan} className="btn btn-primary">
-          Start Scan
-        </button>
-      ) : (
-        <div className="animate-fade-in">
-          <div style={{ 
-            padding: '12px', 
-            background: '#d1fae5', 
-            borderRadius: '6px',
-            textAlign: 'center',
-            color: '#065f46',
-            fontWeight: '600',
-            marginBottom: '16px'
-          }}>
-            ✅ Tag Scanned Successfully!
-          </div>
-          <button onClick={handleContinue} className="btn btn-primary" style={{ width: '100%' }}>
-            Continue to Photos →
+        {!scanSuccess ? (
+          <button onClick={startScan} className="btn btn-primary">
+            Start Scan
           </button>
-        </div>
-      )}
-    </div>
+        ) : (
+          <div className="animate-fade-in">
+            <div className="status-message status-success">
+              ✅ Tag Scanned Successfully!
+            </div>
+            <button onClick={handleContinue} className="btn btn-primary">
+              Continue to Photos →
+            </button>
+          </div>
+        )}
+      </div>
   );
 }

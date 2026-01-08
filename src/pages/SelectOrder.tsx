@@ -14,27 +14,26 @@ export default function SelectOrder() {
   };
 
   return (
-    <div className="card animate-fade-in">
+    <div className="card animate-fade-in" style={{ marginTop: '20px' }}>
       <div className="text-center">
         <h1 className="header-title">Select Order</h1>
         <p className="header-subtitle">Enter order ID or scan barcode</p>
       </div>
-
-      <form onSubmit={handleSubmit} className="form-group">
-        <div>
-          <input
-            className="input-field"
-            type="text"
-            placeholder="Order ID / Scan Barcode"
-            value={orderId}
-            onChange={(e) => setOrderId(e.target.value)}
-            required
-          />
-        </div>
-        <button type="submit" className="btn btn-primary">
-          Continue
-        </button>
-      </form>
-    </div>
+        <form onSubmit={handleSubmit} className="form-group">
+          <div>
+            <input
+              className="input-field"
+              type="text"
+              placeholder="Order ID / Scan Barcode"
+              value={orderId}
+              onChange={(e) => setOrderId(e.target.value)}
+              required
+            />
+          </div>
+          <button type="submit" className="btn btn-primary">
+            Continue
+          </button>
+        </form>
+      </div>
   );
 }

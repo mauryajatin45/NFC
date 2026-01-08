@@ -149,7 +149,7 @@ export default function WriteNFC() {
     localStorage.removeItem("nfcToken");
     localStorage.removeItem("gps");
     
-    navigate("/home");
+    navigate("/order/select");
   };
 
   const handleSkip = () => {
@@ -159,159 +159,150 @@ export default function WriteNFC() {
   };
 
   return (
-    <div className="card animate-fade-in">
+    <div className="card animate-fade-in" style={{ marginTop: '20px' }}>
       <div className="text-center">
         <h1 className="header-title">Write NFC Tag</h1>
         <p className="header-subtitle">Write enrollment data to the tag</p>
       </div>
-
-      {/* Order Details */}
-      <div style={{
-        background: '#f9fafb',
-        padding: '16px',
-        borderRadius: '8px',
-        border: '1px solid var(--border-color)',
-        marginBottom: '20px'
-      }}>
-        <div style={{ marginBottom: '8px' }}>
-          <strong style={{ color: 'var(--text-primary)' }}>Order:</strong>
-          <span style={{ float: 'right', color: 'var(--text-secondary)' }}>{orderId}</span>
-        </div>
-        <div style={{ marginBottom: '8px' }}>
-          <strong style={{ color: 'var(--text-primary)' }}>Token:</strong>
-          <span style={{ 
-            float: 'right', 
-            color: 'var(--text-secondary)',
-            fontSize: '12px',
-            fontFamily: 'monospace'
-          }}>
-            {nfcToken}
-          </span>
-        </div>
-      </div>
-
-      {/* URL to Write */}
-      <div style={{
-        background: '#f0f9ff',
-        padding: '16px',
-        borderRadius: '8px',
-        border: '2px solid #0ea5e9',
-        marginBottom: '20px'
-      }}>
-        <div style={{ marginBottom: '8px', fontWeight: '600', color: '#0369a1' }}>
-          📝 URL to Write:
-        </div>
+        {/* Order Details */}
         <div style={{
-          fontFamily: 'monospace',
-          fontSize: '14px',
-          wordBreak: 'break-all',
-          color: '#0c4a6e',
-          background: 'white',
-          padding: '12px',
-          borderRadius: '6px'
+          background: 'var(--ink-off-white)',
+          padding: '16px',
+          borderRadius: 'var(--radius-md)',
+          border: '1px solid var(--ink-border)',
+          marginBottom: '20px'
         }}>
-          {urlToWrite}
+          <div style={{ marginBottom: '8px' }}>
+            <strong style={{ color: 'var(--ink-black)' }}>Order:</strong>
+            <span style={{ float: 'right', color: 'var(--ink-gray-dark)' }}>{orderId}</span>
+          </div>
+          <div style={{ marginBottom: '8px' }}>
+            <strong style={{ color: 'var(--ink-black)' }}>Token:</strong>
+            <span style={{ 
+              float: 'right', 
+              color: 'var(--ink-gray-dark)',
+              fontSize: '12px',
+              fontFamily: 'monospace'
+            }}>
+              {nfcToken}
+            </span>
+          </div>
         </div>
-      </div>
 
-      {/* Status Display */}
-      <div className="text-center mb-4">
-        <div className="status" style={{ 
-          fontSize: '18px', 
-          fontWeight: '600', 
-          color: writeSuccess ? '#065f46' : error ? '#991b1b' : 'var(--primary-color)',
-          padding: '20px',
-          background: writeSuccess ? '#d1fae5' : error ? '#fee2e2' : '#f0f9ff',
-          borderRadius: '8px',
-          marginBottom: '16px'
+        {/* URL to Write */}
+        <div style={{
+          background: 'var(--ink-white)',
+          padding: '16px',
+          borderRadius: 'var(--radius-md)',
+          border: '2px solid var(--ink-black)',
+          marginBottom: '20px'
         }}>
-          {status}
+          <div style={{ marginBottom: '8px', fontWeight: '600', color: 'var(--ink-black)' }}>
+            📝 URL to Write:
+          </div>
+          <div style={{
+            fontFamily: 'monospace',
+            fontSize: '14px',
+            wordBreak: 'break-all',
+            color: 'var(--ink-gray-dark)',
+            background: 'var(--ink-off-white)',
+            padding: '12px',
+            borderRadius: 'var(--radius-sm)'
+          }}>
+            {urlToWrite}
+          </div>
         </div>
-        
-        {!writeSuccess && !error && (
-          <p style={{ color: 'var(--text-secondary)', fontSize: '14px' }}>
-            {isIOSWrapper 
-              ? "Tap 'Start Write' and hold iPhone near the tag." 
-              : "Hold the NFC tag near the back of your device."}
-          </p>
-        )}
 
-        {error && !writeSuccess && (
-          <p style={{ color: '#991b1b', fontSize: '14px', marginTop: '8px' }}>
-            {error}
-          </p>
-        )}
-      </div>
-
-      {/* Action Buttons */}
-      {!writeSuccess ? (
-        <div>
-          <button 
-            onClick={startWrite} 
-            disabled={isWriting}
-            className="btn btn-primary"
-            style={{ width: '100%', marginBottom: '10px' }}
-          >
-            {isWriting ? "Writing..." : "✍️ Start Write"}
-          </button>
+        {/* Status Display */}
+        <div className="text-center mb-4">
+          <div className={`status-message ${
+            writeSuccess ? 'status-success' : 
+            error ? 'status-error' : 
+            'status-info'
+          }`} style={{
+            fontSize: '16px',
+            fontWeight: '600'
+          }}>
+            {status}
+          </div>
           
-          {error && (
+          {!writeSuccess && !error && (
+            <p style={{ color: 'var(--ink-gray-dark)', fontSize: '14px', marginTop: '12px' }}>
+              {isIOSWrapper 
+                ? "Tap 'Start Write' and hold iPhone near the tag." 
+                : "Hold the NFC tag near the back of your device."}
+            </p>
+          )}
+
+          {error && !writeSuccess && (
+            <p style={{ color: '#991b1b', fontSize: '14px', marginTop: '8px' }}>
+              {error}
+            </p>
+          )}
+        </div>
+
+        {/* Action Buttons */}
+        {!writeSuccess ? (
+          <div>
             <button 
               onClick={startWrite} 
-              className="btn btn-secondary"
+              disabled={isWriting}
+              className="btn btn-primary"
               style={{ width: '100%', marginBottom: '10px' }}
             >
-              🔄 Retry Write
+              {isWriting ? "Writing..." : "✍️ Start Write"}
             </button>
-          )}
-          
-          <button 
-            onClick={handleSkip} 
-            className="btn btn-secondary"
-            style={{ width: '100%' }}
-          >
-            Skip (Manual Write Later)
-          </button>
-        </div>
-      ) : (
-        <div className="animate-fade-in">
-          <div style={{ 
-            padding: '12px', 
-            background: '#d1fae5', 
-            borderRadius: '6px',
-            textAlign: 'center',
-            color: '#065f46',
-            fontWeight: '600',
-            marginBottom: '16px'
-          }}>
-            ✅ NFC Tag Written Successfully!
+            
+            {error && (
+              <button 
+                onClick={startWrite} 
+                className="btn btn-secondary"
+                style={{ width: '100%', marginBottom: '10px' }}
+              >
+                🔄 Retry Write
+              </button>
+            )}
+            
+            <button 
+              onClick={handleSkip} 
+              className="btn btn-secondary"
+              style={{ width: '100%' }}
+            >
+              Skip (Manual Write Later)
+            </button>
           </div>
-          <button 
-            onClick={handleContinue} 
-            className="btn btn-primary" 
-            style={{ width: '100%' }}
-          >
-            Complete & Return Home →
-          </button>
-        </div>
-      )}
+        ) : (
+          <div className="animate-fade-in">
+            <div className="status-message status-success">
+              ✅ NFC Tag Written Successfully!
+            </div>
+            <button 
+              onClick={handleContinue} 
+              className="btn btn-primary" 
+              style={{ width: '100%' }}
+            >
+              Complete & Return Home →
+            </button>
+          </div>
+        )}
 
-      {/* Help Text */}
-      <div style={{ 
-        marginTop: '20px', 
-        padding: '12px', 
-        background: '#fef3c7', 
-        borderRadius: '6px',
-        fontSize: '13px'
-      }}>
-        <strong>💡 Tips:</strong>
-        <ul style={{ margin: '8px 0', paddingLeft: '20px' }}>
-          <li>Hold the tag steady until write completes</li>
-          <li>If write fails, try cleaning the tag surface</li>
-          <li>The tag must be NFC writable (not read-only)</li>
-          <li>You can skip this step and write manually later if needed</li>
-        </ul>
+        {/* Help Text */}
+        <div style={{ 
+          marginTop: '20px', 
+          padding: '12px', 
+          background: '#fffbeb', 
+          borderRadius: 'var(--radius-md)',
+          fontSize: '13px',
+          border: '1px solid #fde68a'
+        }}>
+          <strong>💡 Tips:</strong>
+          <ul style={{ margin: '8px 0', paddingLeft: '20px' }}>
+            <li>Hold the tag steady until write completes</li>
+            <li>If write fails, try cleaning the tag surface</li>
+            <li>The tag must be NFC writable (not read-only)</li>
+            <li>You can skip this step and write manually later if needed</li>
+          </ul>
+        </div>
       </div>
-    </div>
   );
 }
