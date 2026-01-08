@@ -8,11 +8,16 @@ export default function Login() {
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
-    // TODO: Implement real auth
-    localStorage.setItem("token", "dummy-token");
-    // Auto-set warehouse mode and skip mode selection
-    localStorage.setItem("mode", "warehouse");
-    navigate("/order/select");
+    
+    // Static authentication logic
+    if (email === "testing@gmail.com" && password === "test123") {
+      localStorage.setItem("token", "dummy-token");
+      // Auto-set warehouse mode and skip mode selection
+      localStorage.setItem("mode", "warehouse");
+      navigate("/order/select");
+    } else {
+      alert("Invalid email or password");
+    }
   };
 
   return (

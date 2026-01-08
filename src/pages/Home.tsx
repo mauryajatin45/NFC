@@ -8,6 +8,7 @@ export default function Home() {
     navigate("/order/select");
   };
 
+  return (
     <div className="card animate-fade-in" style={{ marginTop: '20px' }}>
       <div className="text-center">
         <h1 className="header-title">Select Mode</h1>
@@ -28,6 +29,5 @@ export default function Home() {
           </button>
         </div>
       </div>
-    </>
   );
 }
