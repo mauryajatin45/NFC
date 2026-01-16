@@ -108,8 +108,12 @@ export default function Confirm() {
   };
 
   const handleUploadPhotos = async () => {
-    if (photos.length !== 4) {
-      alert("Please select exactly 4 photos");
+    if (photos.length === 0) {
+      alert("Please select at least 1 photo");
+      return;
+    }
+    if (photos.length > 4) {
+      alert("Maximum 4 photos allowed");
       return;
     }
 
@@ -178,8 +182,8 @@ export default function Confirm() {
   };
 
   const handleSubmit = async () => {
-    if (photoUrls.length !== 4 || photoHashes.length !== 4) {
-      alert("Please upload 4 photos first");
+    if (photoUrls.length === 0 || photoHashes.length === 0) {
+      alert("Please upload at least 1 photo first");
       return;
     }
 
@@ -259,7 +263,7 @@ export default function Confirm() {
         {/* Photo Upload Section */}
         <div style={{ marginBottom: '20px' }}>
           <h3 style={{ marginBottom: '12px', fontSize: '16px', fontWeight: '600' }}>
-            📸 Upload 4 Photos {photos.length > 0 && `(${photos.length}/4)`}
+            📸 Upload Photos (1-4) {photos.length > 0 && `(${photos.length}/4)`}
           </h3>
 
           {/* Photo Previews */}
@@ -332,7 +336,7 @@ export default function Confirm() {
           )}
 
           {/* Upload to Server Button */}
-          {photos.length === 4 && photoUrls.length === 0 && (
+          {photos.length > 0 && photos.length <= 4 && photoUrls.length === 0 && (
             <button
               onClick={handleUploadPhotos}
               disabled={uploadingPhotos}
@@ -344,7 +348,7 @@ export default function Confirm() {
           )}
 
           {/* Success indicator */}
-          {photoUrls.length === 4 && (
+          {photoUrls.length > 0 && photoUrls.length === photos.length && (
             <div className="status-message status-success">
               ✅ All photos uploaded successfully!
             </div>
@@ -355,11 +359,11 @@ export default function Confirm() {
         <div className="form-group mt-4">
           <button
             onClick={handleSubmit}
-            disabled={loading || photoUrls.length !== 4}
+            disabled={loading || photoUrls.length === 0}
             className="btn btn-primary"
             style={{
               width: '100%',
-              opacity: photoUrls.length !== 4 ? 0.5 : 1
+              opacity: photoUrls.length === 0 ? 0.5 : 1
             }}
           >
             {loading ? "Enrolling..." : "✅ Complete Enrollment"}
