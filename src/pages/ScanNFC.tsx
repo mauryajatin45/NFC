@@ -21,6 +21,7 @@ declare global {
 
 export default function ScanNFC() {
   const [status, setStatus] = useState("Ready to scan");
+  const [scanSuccess, setScanSuccess] = useState(false);
   const navigate = useNavigate();
   const abortController = new AbortController();
 
@@ -84,10 +85,8 @@ export default function ScanNFC() {
     }
   };
 
-  const [scanSuccess, setScanSuccess] = useState(false);
-
   const handleTagRead = (nfcUid: string) => {
-    setStatus(`Tag detected: ${nfcUid}`);
+    setStatus("Sticker detected.");
     localStorage.setItem("nfcUid", nfcUid);
     setScanSuccess(true);
     
@@ -109,50 +108,76 @@ export default function ScanNFC() {
   };
 
   const handleContinue = () => {
-    navigate("/confirm");
+    navigate("/photos");
+  };
+
+  const handleCancel = () => {
+    navigate("/order/select");
   };
 
   return (
-    <div className="card animate-fade-in" style={{ marginTop: '20px' }}>
-      <div className="text-center">
-        <h1 className="header-title">Scan NFC Tag</h1>
-        <p className="header-subtitle">Hold device near the tag to read</p>
-      </div>
-        <div className="scan-area" style={{ 
-          borderColor: scanSuccess ? 'var(--ink-black)' : 'var(--ink-border)'
-        }}>
-          <div className="scan-icon">
-            {scanSuccess ? '✅' : '📱'}
-          </div>
-          <div className="status-message status-info" style={{
-            background: scanSuccess ? '#f0fdf4' : 'var(--ink-off-white)',
-            color: scanSuccess ? '#166534' : 'var(--ink-black)',
-            borderColor: scanSuccess ? '#bbf7d0' : 'var(--ink-border)'
-          }}>
-            {status}
-          </div>
-        </div>
-        
-        <p className="text-center" style={{ color: 'var(--ink-gray-dark)', fontSize: '14px' }}>
-          {isIOSWrapper 
-            ? "Tap 'Start Scan' and hold iPhone near the tag." 
-            : "Hold the product's NFC tag near the back of the device."}
-        </p>
+    <div className="scan-page">
+      {/* Cancel Button */}
+      <button className="cancel-btn" onClick={handleCancel}>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <path d="M15 18l-6-6 6-6" />
+        </svg>
+        Cancel
+      </button>
 
-        {!scanSuccess ? (
-          <button onClick={startScan} className="btn btn-primary">
-            Start Scan
-          </button>
-        ) : (
-          <div className="animate-fade-in">
-            <div className="status-message status-success">
-              ✅ Tag Scanned Successfully!
-            </div>
-            <button onClick={handleContinue} className="btn btn-primary">
-              Continue to Photos →
-            </button>
-          </div>
+      {/* Step Indicator */}
+      <div className="step-indicator">
+        <div className="step active">
+          <div className="step-number">1</div>
+          <div className="step-label">Scan</div>
+        </div>
+        <div className="step">
+          <div className="step-number">2</div>
+          <div className="step-label">Photos</div>
+        </div>
+        <div className="step">
+          <div className="step-number">3</div>
+          <div className="step-label">Write</div>
+        </div>
+        <div className="step">
+          <div className="step-number">4</div>
+          <div className="step-label">Done</div>
+        </div>
+      </div>
+
+      {/* Content */}
+      <div className="scan-content">
+        <h1 className="scan-title">Scan Sticker</h1>
+        <p className="scan-subtitle">{status}</p>
+
+        {/* NFC Icon */}
+        <div className={`nfc-icon-container ${scanSuccess ? "success" : ""}`}>
+          <svg width="80" height="80" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+            <path d="M12 2L2 7v10c0 5.5 3.8 10 10 10s10-4.5 10-10V7L12 2z" />
+            <path d="M9 9h6M9 12h6M9 15h6" />
+          </svg>
+        </div>
+
+        {!scanSuccess && (
+          <p className="scan-processing">{status === "Scanning..." ? "Processing..." : ""}</p>
         )}
       </div>
+
+      {/* Action Button */}
+      {!scanSuccess ? (
+        <button onClick={startScan} className="btn-scan">
+          Start Scan
+        </button>
+      ) : (
+        <div className="scan-success-container">
+          <div className="success-message">
+            ✓ Sticker detected
+          </div>
+          <button onClick={handleContinue} className="btn-continue">
+            Continue to Photos
+          </button>
+        </div>
+      )}
+    </div>
   );
 }

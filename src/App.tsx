@@ -2,8 +2,9 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import Login from "./pages/Login";
 import SelectOrder from "./pages/SelectOrder";
 import ScanNFC from "./pages/ScanNFC";
-import Confirm from "./pages/Confirm";
+import CapturePhotos from "./pages/CapturePhotos";
 import WriteNFC from "./pages/WriteNFC";
+import Success from "./pages/Success";
 import TestConnection from "./pages/TestConnection";
 import "./App.css";
 
@@ -14,11 +15,11 @@ function App() {
         <div className="main-content">
           <Routes>
             <Route path="/login" element={<Login />} />
-            <Route path="/home" element={<Navigate to="/order/select" replace />} />
             <Route path="/order/select" element={<SelectOrder />} />
             <Route path="/scan" element={<ScanNFC />} />
-            <Route path="/confirm" element={<Confirm />} />
+            <Route path="/photos" element={<CapturePhotos />} />
             <Route path="/write" element={<WriteNFC />} />
+            <Route path="/success" element={<Success />} />
             <Route path="/test" element={<TestConnection />} />
             <Route path="/" element={<Navigate to="/login" replace />} />
           </Routes>

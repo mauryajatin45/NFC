@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 export default function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const navigate = useNavigate();
 
   const handleLogin = (e: React.FormEvent) => {
@@ -21,38 +22,66 @@ export default function Login() {
   };
 
   return (
-    <div className="card animate-fade-in" style={{ marginTop: '20px' }}>
-      <div className="text-center">
-        <h1 className="header-title" style={{ fontFamily: 'Playfair Display', fontSize: '32px', marginBottom: '8px' }}>ink.</h1>
-        <h2 className="header-title">Sign In</h2>
-        <p className="header-subtitle">Access your account</p>
-      </div>
+    <div className="login-page">
+      <div className="login-container">
+        <div className="login-header">
+          <h1 className="login-title">Warehouse Access</h1>
+          <p className="login-subtitle">Login to enroll packages</p>
+        </div>
         
-        <form onSubmit={handleLogin} className="form-group">
-          <div>
+        <form onSubmit={handleLogin} className="login-form">
+          <div className="login-field">
+            <label className="login-label">WORK EMAIL</label>
             <input
-              className="input-field"
+              className="login-input"
               type="email"
-              placeholder="Email address"
+              placeholder="operator@warehouse.com"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
             />
           </div>
-          <div>
-            <input
-              className="input-field"
-              type="password"
-              placeholder="Password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-            />
+
+          <div className="login-field">
+            <label className="login-label">PASSWORD</label>
+            <div className="password-input-wrapper">
+              <input
+                className="login-input"
+                type={showPassword ? "text" : "password"}
+                placeholder="••••••••"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+              />
+              <button
+                type="button"
+                className="password-toggle"
+                onClick={() => setShowPassword(!showPassword)}
+                aria-label="Toggle password visibility"
+              >
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  {showPassword ? (
+                    <>
+                      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                      <circle cx="12" cy="12" r="3" />
+                      <line x1="1" y1="1" x2="23" y2="23" />
+                    </>
+                  ) : (
+                    <>
+                      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                      <circle cx="12" cy="12" r="3" />
+                    </>
+                  )}
+                </svg>
+              </button>
+            </div>
           </div>
-          <button type="submit" className="btn btn-primary">
-            Log In
+
+          <button type="submit" className="btn-login">
+            Enter Warehouse
           </button>
         </form>
       </div>
+    </div>
   );
 }
