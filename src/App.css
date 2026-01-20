@@ -918,3 +918,303 @@ body {
 .btn-login:active {
   transform: translateY(0);
 }
+
+.btn-login-active {
+  background: var(--ink-black) !important;
+}
+
+.btn-login-active:hover {
+  background: #333 !important;
+}
+
+/* ===== Responsive Design ===== */
+
+/* Small phones (up to 375px) */
+@media (max-width: 375px) {
+  :root {
+    --spacing-lg: 16px;
+    --spacing-xl: 24px;
+    --spacing-2xl: 32px;
+  }
+
+  .select-order-title,
+  .scan-title,
+  .photos-title,
+  .write-title,
+  .success-title {
+    font-size: 28px;
+  }
+
+  .login-title {
+    font-size: 32px;
+  }
+
+  .order-card {
+    padding: 12px;
+  }
+
+  .photo-grid {
+    gap: 10px;
+  }
+
+  .step-indicator {
+    gap: var(--spacing-md);
+  }
+
+  .step-label {
+    font-size: 10px;
+  }
+}
+
+/* Tablets and small desktops (768px and up) */
+@media (min-width: 768px) {
+  .app-container {
+    max-width: 600px;
+  }
+
+  .login-container {
+    max-width: 480px;
+  }
+
+  .select-order-title,
+  .scan-title,
+  .photos-title,
+  .write-title,
+  .success-title {
+    font-size: 42px;
+  }
+
+  .login-title {
+    font-size: 48px;
+  }
+
+  .select-order-subtitle,
+  .scan-subtitle,
+  .photos-subtitle,
+  .write-subtitle,
+  .success-subtitle,
+  .login-subtitle {
+    font-size: 18px;
+  }
+
+  .photo-grid {
+    max-width: 400px;
+    gap: var(--spacing-lg);
+  }
+
+  .order-card {
+    padding: var(--spacing-lg);
+  }
+
+  .order-id,
+  .order-product {
+    font-size: 16px;
+  }
+
+  .order-price {
+    font-size: 20px;
+  }
+
+  .nfc-icon-container {
+    width: 150px;
+    height: 150px;
+  }
+
+  .nfc-icon-container svg {
+    width: 100px;
+    height: 100px;
+  }
+
+  .success-icon {
+    width: 150px;
+    height: 150px;
+  }
+
+  .step-indicator {
+    gap: var(--spacing-xl);
+  }
+
+  .step-number {
+    width: 40px;
+    height: 40px;
+    font-size: 16px;
+  }
+
+  .step-label {
+    font-size: 14px;
+  }
+
+  .btn-enroll,
+  .btn-scan,
+  .btn-continue,
+  .btn-write,
+  .btn-complete,
+  .btn-scan-next,
+  .btn-login,
+  .btn-take-photos,
+  .btn-continue-enrollment {
+    padding: 18px 24px;
+    font-size: 18px;
+  }
+}
+
+/* Large desktops (1024px and up) */
+@media (min-width: 1024px) {
+  .app-container {
+    max-width: 640px;
+  }
+
+  .main-content {
+    padding: var(--spacing-xl);
+  }
+
+  .select-order-container,
+  .scan-page,
+  .photos-page,
+  .write-page,
+  .success-page {
+    padding: var(--spacing-xl);
+  }
+
+  .orders-list {
+    max-height: 500px;
+  }
+
+  .photo-grid {
+    max-width: 480px;
+  }
+
+  .write-details {
+    max-width: 400px;
+  }
+}
+
+/* Landscape orientation adjustments */
+@media (orientation: landscape) and (max-height: 600px) {
+  .login-page,
+  .scan-page,
+  .photos-page,
+  .write-page,
+  .success-page {
+    padding: var(--spacing-md);
+  }
+
+  .login-header,
+  .select-order-header {
+    margin-bottom: var(--spacing-lg);
+  }
+
+  .step-indicator {
+    margin-bottom: var(--spacing-lg);
+  }
+
+  .nfc-icon-container,
+  .success-icon {
+    width: 80px;
+    height: 80px;
+    margin: var(--spacing-md) 0;
+  }
+
+  .nfc-icon-container svg,
+  .success-icon svg {
+    width: 60px;
+    height: 60px;
+  }
+
+  .photo-grid {
+    margin: var(--spacing-md) 0;
+  }
+}
+
+/* Touch device optimizations */
+@media (hover: none) and (pointer: coarse) {
+  /* Larger touch targets */
+  .order-card {
+    min-height: 80px;
+  }
+
+  .btn-enroll,
+  .btn-scan,
+  .btn-continue,
+  .btn-write,
+  .btn-complete,
+  .btn-scan-next,
+  .btn-login,
+  .btn-take-photos,
+  .btn-continue-enrollment {
+    min-height: 48px;
+  }
+
+  .barcode-btn,
+  .refresh-btn,
+  .cancel-btn {
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  /* Remove hover effects on touch devices */
+  .order-card:hover {
+    transform: none;
+    box-shadow: none;
+  }
+
+  .btn-enroll:hover,
+  .btn-scan:hover,
+  .btn-continue:hover,
+  .btn-write:hover,
+  .btn-complete:hover,
+  .btn-scan-next:hover,
+  .btn-login:hover,
+  .btn-take-photos:hover,
+  .btn-continue-enrollment:hover {
+    transform: none;
+  }
+}
+
+/* High DPI displays */
+@media (-webkit-min-device-pixel-ratio: 2), (min-resolution: 192dpi) {
+  /* Slightly thinner borders on retina displays */
+  .order-card,
+  .login-input,
+  .search-input,
+  .nfc-icon-container {
+    border-width: 0.5px;
+  }
+
+  .order-card.selected {
+    border-width: 1.5px;
+  }
+}
+
+/* Reduce motion for accessibility */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+
+  .spinner {
+    animation: none;
+    border-top-color: var(--ink-black);
+  }
+}
+
+/* Dark mode support (optional, commented out by default) */
+/*
+@media (prefers-color-scheme: dark) {
+  :root {
+    --ink-black: #FFFFFF;
+    --ink-white: #000000;
+    --ink-gray-light: #1A1A1A;
+    --ink-gray-medium: #2A2A2A;
+    --ink-border: #333333;
+  }
+
+  body {
+    background: var(--ink-white);
+    color: var(--ink-black);
+  }
+}
+*/
+

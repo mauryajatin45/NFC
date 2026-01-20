@@ -77,7 +77,10 @@ export default function Login() {
             </div>
           </div>
 
-          <button type="submit" className="btn-login">
+          <button 
+            type="submit" 
+            className={`btn-login ${email === "testing@gmail.com" && password === "test123" ? "btn-login-active" : ""}`}
+          >
             Enter Warehouse
           </button>
         </form>
