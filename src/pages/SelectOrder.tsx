@@ -92,26 +92,14 @@ export default function SelectOrder() {
       {/* Search Section */}
       <div className="search-section">
         <label className="search-label">ORDER ID</label>
-        <div className="search-input-wrapper">
-          <input
-            type="text"
-            className="search-input"
-            placeholder="Enter order # or tap scan"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && handleSearch()}
-          />
-          <button className="barcode-btn" onClick={handleSearch}>
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <rect x="3" y="4" width="2" height="16" />
-              <rect x="7" y="4" width="1" height="16" />
-              <rect x="10" y="4" width="2" height="16" />
-              <rect x="14" y="4" width="1" height="16" />
-              <rect x="17" y="4" width="2" height="16" />
-              <rect x="21" y="4" width="1" height="16" />
-            </svg>
-          </button>
-        </div>
+        <input
+          type="text"
+          className="search-input"
+          placeholder="Enter order # or tap scan"
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && handleSearch()}
+        />
       </div>
 
       {/* Orders List Section */}
@@ -176,14 +164,14 @@ export default function SelectOrder() {
                       {order.itemCount} {order.itemCount === 1 ? "item" : "items"}
                     </div>
                   </div>
-                  <div className="order-price">
-                    {order.currencySymbol}{order.totalPrice}
+                  <div className="order-right">
+                    <div className="order-price">
+                      {order.currencySymbol}{order.totalPrice}
+                    </div>
+                    <span className={`shipping-label shipping-${order.shippingColor}`}>
+                      {order.shippingStatus}
+                    </span>
                   </div>
-                </div>
-                <div className="order-shipping">
-                  <span className={`shipping-label shipping-${order.shippingColor}`}>
-                    {order.shippingStatus}
-                  </span>
                 </div>
               </div>
             ))}

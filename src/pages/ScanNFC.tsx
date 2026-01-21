@@ -128,20 +128,29 @@ export default function ScanNFC() {
       {/* Step Indicator */}
       <div className="step-indicator">
         <div className="step active">
-          <div className="step-number">1</div>
-          <div className="step-label">Scan</div>
+          <span className="step-number">1</span>
+          <span className="step-label">Scan</span>
         </div>
-        <div className="step">
-          <div className="step-number">2</div>
-          <div className="step-label">Photos</div>
+        <svg className="step-arrow" viewBox="0 0 12 12">
+          <path d="M4 2L8 6L4 10" stroke="currentColor" strokeWidth="1.5" fill="none" strokeLinecap="round" strokeLinejoin="round"/>
+        </svg>
+        <div className="step pending">
+          <span className="step-number">2</span>
+          <span className="step-label">Photos</span>
+       </div>
+        <svg className="step-arrow" viewBox="0 0 12 12">
+          <path d="M4 2L8 6L4 10" stroke="currentColor" strokeWidth="1.5" fill="none" strokeLinecap="round" strokeLinejoin="round"/>
+        </svg>
+        <div className="step pending">
+          <span className="step-number">3</span>
+          <span className="step-label">Write</span>
         </div>
-        <div className="step">
-          <div className="step-number">3</div>
-          <div className="step-label">Write</div>
-        </div>
-        <div className="step">
-          <div className="step-number">4</div>
-          <div className="step-label">Done</div>
+        <svg className="step-arrow" viewBox="0 0 12 12">
+          <path d="M4 2L8 6L4 10" stroke="currentColor" strokeWidth="1.5" fill="none" strokeLinecap="round" strokeLinejoin="round"/>
+        </svg>
+        <div className="step pending">
+          <span className="step-number">4</span>
+          <span className="step-label">Done</span>
         </div>
       </div>
 
