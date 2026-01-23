@@ -25,7 +25,7 @@ export default function SelectOrder() {
   const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
 
-  const API_BASE = import.meta.env.VITE_API_BASE_URL || "https://shopifyapp.terzettoo.com";
+  const API_BASE = import.meta.env.VITE_API_BASE_URL || "https://shopify-app-250065525755.us-central1.run.app";
 
   const fetchOrders = async () => {
     setLoading(true);

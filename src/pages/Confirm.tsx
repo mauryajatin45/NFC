@@ -14,7 +14,7 @@ export default function Confirm() {
   const nfcUid = localStorage.getItem("nfcUid");
   const gps = JSON.parse(localStorage.getItem("gps") || "{}");
 
-  const API_BASE = import.meta.env.VITE_API_BASE_URL || "https://shopifyapp.terzettoo.com";
+  const API_BASE = import.meta.env.VITE_API_BASE_URL || "https://shopify-app-250065525755.us-central1.run.app";
 
   const compressImage = async (file: File): Promise<File> => {
     return new Promise((resolve, reject) => {
