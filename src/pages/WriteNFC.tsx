@@ -24,6 +24,8 @@ export default function WriteNFC() {
   const [writeSuccess, setWriteSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isWriting, setIsWriting] = useState(false);
+  const [autoStarted, setAutoStarted] = useState(false);
+  const [isBlinking, setIsBlinking] = useState(false); // For success blink animation
   const navigate = useNavigate();
 
   const nfcToken = localStorage.getItem("nfcToken");
@@ -48,10 +50,10 @@ export default function WriteNFC() {
     // Register global callback for iOS write result
     if (isIOSWrapper) {
       window.handleIOSWriteResult = (success: boolean, errorMsg?: string) => {
-        setIsWriting(false);
         if (success) {
           handleWriteSuccess();
         } else {
+          setIsWriting(false);
           setError(errorMsg || "Write failed");
           setStatus("Write failed. Try again.");
         }
@@ -66,15 +68,36 @@ export default function WriteNFC() {
     };
   }, [nfcToken, navigate, isIOSWrapper]);
 
+  // ✅ AUTO-START WRITING
+  useEffect(() => {
+    if (!writeSuccess && !isWriting && !autoStarted && urlToWrite) {
+      setAutoStarted(true);
+      
+      // Small delay to ensure DOM is ready and smooth UX
+      setTimeout(() => {
+        startWrite();
+      }, 500);
+    }
+  }, [writeSuccess, isWriting, autoStarted, urlToWrite]);
+
   const handleWriteSuccess = () => {
-    setWriteSuccess(true);
     setStatus("Sticker saved!");
     setError(null);
+    setIsWriting(false);
     
-    // Auto-navigate to success page after animation
+    // Start fast blink animation (3 times) like Scan page
+    setIsBlinking(true);
+
+    // After 3 blinks (~600ms), show checkmark
     setTimeout(() => {
-      navigate("/success");
-    }, 1500);
+      setIsBlinking(false);
+      setWriteSuccess(true);
+      
+      // Auto-navigate to success page after animation
+      setTimeout(() => {
+        navigate("/success");
+      }, 1500);
+    }, 600);
   };
 
   const startWrite = async () => {
@@ -122,7 +145,6 @@ export default function WriteNFC() {
       });
 
       // Success!
-      setIsWriting(false);
       handleWriteSuccess();
 
     } catch (error: any) {
@@ -215,7 +237,7 @@ export default function WriteNFC() {
           height: '120px',
           margin: '32px auto',
           borderRadius: '16px',
-          border: writeSuccess ? '2px solid #22c55e' : '2px solid #000',
+          border: writeSuccess ? '2px solid #000' : '2px solid #000', // Black border on success
           backgroundColor: writeSuccess ? '#f0fdf4' : '#fff',
           display: 'flex',
           alignItems: 'center',
@@ -223,13 +245,13 @@ export default function WriteNFC() {
           transition: 'all 0.3s ease'
         }}>
           {writeSuccess ? (
-            /* Checkmark Icon */
+            /* Checkmark Icon - Black Tick */
             <svg 
               width="48" 
               height="48" 
               viewBox="0 0 24 24" 
               fill="none" 
-              stroke="#22c55e" 
+              stroke="#000000" 
               strokeWidth="2.5" 
               strokeLinecap="round" 
               strokeLinejoin="round"
@@ -248,7 +270,15 @@ export default function WriteNFC() {
               strokeWidth="2" 
               strokeLinecap="round" 
               strokeLinejoin="round"
-              style={{ color: isWriting ? '#000' : '#9ca3af', transform: 'rotate(45deg)', animation: isWriting ? 'pulse 1.5s infinite' : 'none' }}
+              style={{ 
+                color: '#9ca3af',
+                transform: 'rotate(45deg)',
+                animation: isBlinking 
+                  ? 'fastBlink 0.2s 3' 
+                  : isWriting 
+                    ? 'pulseColor 1.5s ease-in-out infinite' 
+                    : 'none'
+              }}
             >
               <path d="M12 20h.01"></path>
               <path d="M2 8.82a15 15 0 0 1 20 0"></path>
@@ -286,10 +316,16 @@ export default function WriteNFC() {
       {/* Action Button */}
       {!writeSuccess && (
         <div className="write-actions">
+          {/* Start Write button removed or disabled when auto-start logic works, 
+              but kepy as fallback if needed or if user cancels then wants to retry?
+              Actually Scan page removed it. 
+              Let's keep it but it should change to "Writing..." if writing. 
+          */}
           <button 
             onClick={startWrite} 
             disabled={isWriting}
             className="btn-write"
+            style={{ display: isWriting ? 'none' : 'block' }} // Hide manual button during write
           >
             {isWriting ? "Writing..." : "Start Write"}
           </button>
@@ -318,12 +354,23 @@ export default function WriteNFC() {
             opacity: 1;
           }
         }
-        @keyframes pulse {
+        /* Pulse animation: grey to black and back */
+        @keyframes pulseColor {
           0%, 100% {
-            opacity: 1;
+            color: #9ca3af;  /* Grey */
           }
           50% {
-            opacity: 0.5;
+            color: #000000;  /* Black */
+          }
+        }
+        
+        /* Fast blink animation: 3 times in 0.6s */
+        @keyframes fastBlink {
+          0%, 100% {
+            color: #9ca3af;  /* Grey */
+          }
+          50% {
+            color: #000000;  /* Black */
           }
         }
       `}</style>

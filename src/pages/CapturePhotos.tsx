@@ -1,15 +1,15 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import LoadingOverlay from "../components/LoadingOverlay";
 
 export default function CapturePhotos() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
-  const [uploadingPhotos, setUploadingPhotos] = useState(false);
+  const [loadingMessage, setLoadingMessage] = useState("");
   const [photos, setPhotos] = useState<File[]>([]);
   const [photoPreviews, setPhotoPreviews] = useState<string[]>([]);
-  const [photoUrls, setPhotoUrls] = useState<string[]>([]);
-  const [photoHashes, setPhotoHashes] = useState<string[]>([]);
-
+  // photoUrls and photoHashes will be tracked locally during the unified process
+  
   const orderId = localStorage.getItem("currentOrderId");
   const orderName = localStorage.getItem("currentOrderName") || orderId || "ORD-UNKNOWN";
   const nfcUid = localStorage.getItem("nfcUid");
@@ -97,6 +97,9 @@ export default function CapturePhotos() {
         };
         reader.readAsDataURL(file);
       });
+      
+      // Clear the input value so the same file can be selected again if needed
+      event.target.value = "";
     } catch (error) {
       console.error("Compression error:", error);
       alert("Failed to process images. Please try again.");
@@ -108,23 +111,23 @@ export default function CapturePhotos() {
     setPhotoPreviews(prev => prev.filter((_, i) => i !== index));
   };
 
-  const handleUploadPhotos = async () => {
+  const handleContinue = async () => {
     if (photos.length === 0) {
       alert("Please select at least 1 photo");
       return;
     }
-    if (photos.length > 4) {
-      alert("Maximum 4 photos allowed");
-      return;
-    }
 
-    setUploadingPhotos(true);
-    const urls: string[] = [];
-    const hashes: string[] = [];
+    setLoading(true);
+    setLoadingMessage("Converting images...");
 
     try {
-      // Upload each photo sequentially
+      // 1. Upload Photos
+      const uploadedUrls: string[] = [];
+      const uploadedHashes: string[] = [];
+
       for (let i = 0; i < photos.length; i++) {
+        setLoadingMessage(`Uploading photo ${i + 1} of ${photos.length}...`);
+        
         const formData = new FormData();
         formData.append("photo", photos[i]);
         formData.append("orderId", orderId || "");
@@ -139,8 +142,7 @@ export default function CapturePhotos() {
             body: formData,
           });
         } catch (err) {
-          console.warn("First upload attempt failed, retrying...", err);
-          // Wait 1 second and retry
+          console.warn(`Upload attempt 1 failed for photo ${i}, retrying...`, err);
           await new Promise(resolve => setTimeout(resolve, 1000));
           response = await fetch(uploadUrl, {
             method: "POST",
@@ -149,84 +151,58 @@ export default function CapturePhotos() {
         }
 
         if (!response.ok) {
-          const errorText = await response.text();
-          throw new Error(`Server returned ${response.status}: ${errorText}`);
+          throw new Error(`Server returned ${response.status}`);
         }
 
         const result = await response.json();
-
         if (!result.success) {
           throw new Error(result.error || "Upload failed");
         }
 
-        urls.push(result.photoUrl);
-        hashes.push(result.photoHash);
+        uploadedUrls.push(result.photoUrl);
+        uploadedHashes.push(result.photoHash);
       }
 
-      setPhotoUrls(urls);
-      setPhotoHashes(hashes);
-      alert("✅ All photos uploaded successfully!");
-
-    } catch (error: any) {
-      console.error("Upload error:", error);
-
-      const errorDetails = `
-        Error: ${error.name}
-        Message: ${error.message}
-        Stack: ${error.stack ? error.stack.substring(0, 100) : 'N/A'}
-      `;
-
-      alert(`❌ Photo upload failed:\n${errorDetails}`);
-    } finally {
-      setUploadingPhotos(false);
-    }
-  };
-
-  const handleSubmit = async () => {
-    if (photoUrls.length === 0 || photoHashes.length === 0) {
-      alert("Please upload at least 1 photo first");
-      return;
-    }
-
-    setLoading(true);
-    try {
-      // Server will convert serial number to UID and Token (deterministic)
+      // 2. Submit Enrollment
+      setLoadingMessage("Finalizing enrollment...");
+      
       const payload = {
         order_id: orderId,
-        serial_number: nfcUid,  // This is the NFC serial number from scan
-        photo_urls: photoUrls,
-        photo_hashes: photoHashes,
+        serial_number: nfcUid,
+        photo_urls: uploadedUrls,
+        photo_hashes: uploadedHashes,
         shipping_address_gps: gps,
       };
 
-      const response = await fetch(`${API_BASE}/api/enroll`, {
+      const enrollResponse = await fetch(`${API_BASE}/api/enroll`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
 
-      const result = await response.json();
+      const enrollResult = await enrollResponse.json();
 
-      if (result.success) {
-        // Store token for NFC writing step
-        if (result.token) {
-          localStorage.setItem("nfcToken", result.token);
+      if (enrollResult.success) {
+        setLoadingMessage("Success!");
+        
+        if (enrollResult.token) {
+          localStorage.setItem("nfcToken", enrollResult.token);
         }
-        if (result.proof_id) {
-          localStorage.setItem("proofId", result.proof_id);
+        if (enrollResult.proof_id) {
+          localStorage.setItem("proofId", enrollResult.proof_id);
         }
 
-        // Navigate to NFC write screen (don't clear localStorage yet)
-        navigate("/write");
+        // Short delay to show success message
+        setTimeout(() => {
+          navigate("/write");
+        }, 1000);
       } else {
-        alert("❌ Error: " + result.error);
+        throw new Error(enrollResult.error);
       }
+
     } catch (error: any) {
-      console.error(error);
-      alert("❌ Submission failed");
-    } finally {
+      console.error("Process error:", error);
+      alert(`❌ Error: ${error.message || "Operation failed"}`);
       setLoading(false);
     }
   };
@@ -237,6 +213,19 @@ export default function CapturePhotos() {
 
   return (
     <div className="photos-page">
+      <LoadingOverlay isVisible={loading} message={loadingMessage} />
+      
+      {/* Hidden File Input */}
+      <input
+        type="file"
+        accept="image/*"
+        capture="environment"
+        multiple
+        id="photo-input"
+        style={{ display: 'none' }}
+        onChange={handleFileSelect}
+      />
+
       {/* Cancel Button */}
       <button className="cancel-btn" onClick={handleCancel}>
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -350,18 +339,9 @@ export default function CapturePhotos() {
           })}
         </div>
 
-      {/* Take Photos Button - Moved here, near camera icons */}
-      {photos.length < 4 && (
-        <>
-          <input
-            type="file"
-            accept="image/*"
-            capture="environment"
-            multiple
-            id="photo-input"
-            style={{ display: 'none' }}
-            onChange={handleFileSelect}
-          />
+        {/* Dynamic Buttons - Change based on photo count */}
+        {photos.length === 0 ? (
+          /* Initial State: Single Take Photo Button */
           <button
             className="btn-take-photos"
             onClick={() => document.getElementById('photo-input')?.click()}
@@ -370,9 +350,9 @@ export default function CapturePhotos() {
               marginBottom: '16px',
               padding: '12px 24px',
               fontSize: '14px',
-              width: 'auto',        // Override 100% width
-              minWidth: '360px',    // Ensure it's not too small
-              alignSelf: 'center'   // Ensure centering
+              width: 'auto',
+              minWidth: '290px',
+              alignSelf: 'center'
             }}
           >
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -381,36 +361,60 @@ export default function CapturePhotos() {
             </svg>
             Take Photos
           </button>
-        </>
-      )}
+        ) : (
+          /* Has Photos: Continue + Take More Buttons */
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', width: '100%', maxWidth: '300px', margin: '16px auto' }}>
+            {/* Primary: Continue */}
+            <button
+              onClick={handleContinue}
+              style={{
+                width: '100%',
+                padding: '14px',
+                backgroundColor: '#111827',
+                color: 'white',
+                border: 'none',
+                borderRadius: '9999px',
+                fontSize: '14px',
+                fontWeight: 600,
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '8px'
+              }}
+            >
+              Continue with {photos.length}
+            </button>
 
-        {/* Upload Button */}
-        {photos.length > 0 && photoUrls.length === 0 && (
-          <button onClick={handleUploadPhotos} disabled={uploadingPhotos} className="btn-upload">
-            {uploadingPhotos ? "Uploading..." : "☁️ Upload Photos"}
-          </button>
-        )}
-
-        {/* Success indicator */}
-        {photoUrls.length > 0 && photoUrls.length === photos.length && (
-          <div className="upload-success">
-            ✅ All photos uploaded successfully!
+            {/* Secondary: Take More (only if < 4) */}
+            {photos.length < 4 && (
+              <button
+                onClick={() => document.getElementById('photo-input')?.click()}
+                style={{
+                  width: '100%',
+                  padding: '14px',
+                  backgroundColor: 'white',
+                  color: '#111827',
+                  border: '1px solid #111827',
+                  borderRadius: '9999px',
+                  fontSize: '14px',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '8px'
+                }}
+              >
+                + Take More
+              </button>
+            )}
           </div>
         )}
       </div>
 
-      {/* Action Buttons - Continue button only */}
-      <div className="photos-actions">
-        {photoUrls.length > 0 && (
-          <button
-            onClick={handleSubmit}
-            disabled={loading}
-            className="btn-continue-enrollment"
-          >
-            {loading ? "Processing..." : "Continue to Write"}
-          </button>
-        )}
-      </div>
+      {/* Bottom Placeholder to maintain spacing if needed */}
+      <div className="photos-actions"></div>
     </div>
   );
 }
