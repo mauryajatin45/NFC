@@ -534,7 +534,17 @@ body {
   color: var(--ink-black);
 }
 
-.scan-content,
+.scan-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;  /* Changed from center to flex-start */
+  text-align: center;
+  overflow-y: auto;
+  padding-bottom: var(--spacing-lg);
+}
+
 .photos-content,
 .write-content,
 .success-content {

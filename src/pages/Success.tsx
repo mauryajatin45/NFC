@@ -19,16 +19,28 @@ export default function Success() {
     <div className="success-page">
       {/* Step Indicator */}
       <div className="step-indicator">
-        <div className="step completed">
-          <div className="step-number">✓</div>
+        <div 
+          className="step completed" 
+          onClick={() => navigate("/scan")}
+          style={{ cursor: 'pointer' }}
+        >
+          <div className="step-number"></div>
           <div className="step-label">Scan</div>
         </div>
-        <div className="step completed">
-          <div className="step-number">✓</div>
+        <div 
+          className="step completed" 
+          onClick={() => navigate("/photos")}
+          style={{ cursor: 'pointer' }}
+        >
+          <div className="step-number"></div>
           <div className="step-label">Photos</div>
         </div>
-        <div className="step completed">
-          <div className="step-number">✓</div>
+        <div 
+          className="step completed" 
+          onClick={() => navigate("/write")}
+          style={{ cursor: 'pointer' }}
+        >
+          <div className="step-number"></div>
           <div className="step-label">Write</div>
         </div>
         <div className="step active">
@@ -38,7 +50,7 @@ export default function Success() {
       </div>
 
       {/* Content */}
-      <div className="success-content">
+      <div className="success-content" style={{ marginTop: '8px', justifyContent: 'flex-start' }}>
         {/* Checkmark Icon */}
         <div className="success-icon">
           <svg width="120" height="120" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
