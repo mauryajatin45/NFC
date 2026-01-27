@@ -6,12 +6,12 @@ export default function CapturePhotos() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [loadingMessage, setLoadingMessage] = useState("");
+  const [loadingProgress, setLoadingProgress] = useState({ current: 0, total: 0 });
   const [photos, setPhotos] = useState<File[]>([]);
   const [photoPreviews, setPhotoPreviews] = useState<string[]>([]);
-  // photoUrls and photoHashes will be tracked locally during the unified process
   
   const orderId = localStorage.getItem("currentOrderId");
-  const orderName = localStorage.getItem("currentOrderName") || orderId || "ORD-UNKNOWN";
+  const orderName = localStorage.getItem("currentOrderName") || orderId || "ORD-00847";
   const nfcUid = localStorage.getItem("nfcUid");
   const gps = JSON.parse(localStorage.getItem("gps") || "{}");
 
@@ -85,11 +85,9 @@ export default function CapturePhotos() {
         })
       );
 
-      // Preview photos
       const newPhotos = [...photos, ...compressedFiles].slice(0, 4);
       setPhotos(newPhotos);
 
-      // Create previews
       compressedFiles.forEach((file) => {
         const reader = new FileReader();
         reader.onloadend = () => {
@@ -98,7 +96,6 @@ export default function CapturePhotos() {
         reader.readAsDataURL(file);
       });
       
-      // Clear the input value so the same file can be selected again if needed
       event.target.value = "";
     } catch (error) {
       console.error("Compression error:", error);
@@ -111,21 +108,22 @@ export default function CapturePhotos() {
     setPhotoPreviews(prev => prev.filter((_, i) => i !== index));
   };
 
-  const handleContinue = async () => {
+  const handleContinueToWrite = async () => {
     if (photos.length === 0) {
       alert("Please select at least 1 photo");
       return;
     }
 
     setLoading(true);
-    setLoadingMessage("Converting images...");
+    setLoadingProgress({ current: 0, total: photos.length });
+    setLoadingMessage("Uploading photo 1 of " + photos.length + "...");
 
     try {
-      // 1. Upload Photos
       const uploadedUrls: string[] = [];
       const uploadedHashes: string[] = [];
 
       for (let i = 0; i < photos.length; i++) {
+        setLoadingProgress({ current: i + 1, total: photos.length });
         setLoadingMessage(`Uploading photo ${i + 1} of ${photos.length}...`);
         
         const formData = new FormData();
@@ -163,7 +161,6 @@ export default function CapturePhotos() {
         uploadedHashes.push(result.photoHash);
       }
 
-      // 2. Submit Enrollment
       setLoadingMessage("Finalizing enrollment...");
       
       const payload = {
@@ -192,7 +189,6 @@ export default function CapturePhotos() {
           localStorage.setItem("proofId", enrollResult.proof_id);
         }
 
-        // Short delay to show success message
         setTimeout(() => {
           navigate("/write");
         }, 1000);
@@ -211,9 +207,18 @@ export default function CapturePhotos() {
     navigate("/scan");
   };
 
+  const triggerFileInput = () => {
+    document.getElementById('photo-input')?.click();
+  };
+
   return (
     <div className="photos-page">
-      <LoadingOverlay isVisible={loading} message={loadingMessage} />
+      <LoadingOverlay 
+        isVisible={loading} 
+        message={loadingMessage} 
+        progress={loadingProgress}
+        orderName={orderName}
+      />
       
       {/* Hidden File Input */}
       <input
@@ -226,6 +231,11 @@ export default function CapturePhotos() {
         onChange={handleFileSelect}
       />
 
+      {/* Black Header Strip */}
+      <div className="header-strip">
+        <span className="header-order-id">{orderName}</span>
+      </div>
+
       {/* Cancel Button */}
       <button className="cancel-btn" onClick={handleCancel}>
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -233,12 +243,6 @@ export default function CapturePhotos() {
         </svg>
         Cancel
       </button>
-
-      {/* Order Header */}
-      <div style={{ textAlign: 'center', marginBottom: '10px' }}>
-        <span style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.1em', fontWeight: 500, color: '#9ca3af' }}>Order</span>
-        <span style={{ fontFamily: 'monospace', fontSize: '12px', color: '#000000', marginLeft: '12px', letterSpacing: '0.05em' }}>{orderName}</span>
-      </div>
 
       {/* Step Indicator */}
       <div className="step-indicator">
@@ -254,7 +258,7 @@ export default function CapturePhotos() {
           <path d="M4 2L8 6L4 10" stroke="currentColor" strokeWidth="1.5" fill="none" strokeLinecap="round" strokeLinejoin="round"/>
         </svg>
         <div className="step active">
-          <div className="step-number">{photos.length > 0 ? photos.length : '2'}</div>
+          <div className="step-number">2</div>
           <div className="step-label">{photos.length > 0 ? `${photos.length}/4` : 'Photos'}</div>
         </div>
         <svg className="step-arrow" viewBox="0 0 12 12">
@@ -276,145 +280,60 @@ export default function CapturePhotos() {
       {/* Content */}
       <div className="photos-content" style={{ marginTop: '8px', justifyContent: 'flex-start' }}>
         <h1 className="photos-title">Capture Photos</h1>
-        <p className="photos-subtitle">Tap button to start continuous capture.</p>
-        <p className="photos-info" style={{ fontSize: '11px', color: '#9ca3af', marginTop: '4px' }}>1-4 recommended • Camera stays open until done</p>
+        <p className="photos-subtitle">
+          {photos.length > 0 ? `${photos.length}/4 captured` : 'Tap button to take a photo.'}
+        </p>
 
-        {/* Photo Grid - 4 columns in one row */}
-        <div style={{ 
-          display: 'grid', 
-          gridTemplateColumns: 'repeat(4, 1fr)', 
-          gap: '8px', 
-          maxWidth: '280px', 
-          margin: '24px auto'
-        }}>
-          {[1, 2, 3, 4].map((slot) => {
-            const hasPhoto = photoPreviews[slot - 1];
+        {/* Photo Grid - 2x2 */}
+        <div className="photo-grid-2x2">
+          {[0, 1, 2, 3].map((index) => {
+            const hasPhoto = photoPreviews[index];
+            const isNextEmpty = !hasPhoto && index === photos.length;
+            
             return (
-              <div key={slot} style={{
-                aspectRatio: '1',
-                borderRadius: '16px',
-                border: hasPhoto ? '2px solid #000' : '2px dashed #d1d5db',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                overflow: 'hidden',
-                position: 'relative',
-                backgroundColor: '#fff',
-                minHeight: '70px'
-              }}>
+              <div 
+                key={index} 
+                className={`photo-box ${hasPhoto ? 'filled' : ''} ${isNextEmpty ? 'next-empty' : ''}`}
+                onClick={triggerFileInput}
+              >
                 {hasPhoto ? (
                   <>
-                    <img src={photoPreviews[slot - 1]} alt={`Photo ${slot}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    <img src={photoPreviews[index]} alt={`Photo ${index + 1}`} className="photo-preview-img" />
+                    <div className="photo-checkmark">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3">
+                        <polyline points="20 6 9 17 4 12" />
+                      </svg>
+                    </div>
                     <button 
-                      onClick={() => removePhoto(slot - 1)}
-                      style={{
-                        position: 'absolute',
-                        top: '4px',
-                        right: '4px',
-                        width: '22px',
-                        height: '22px',
-                        borderRadius: '50%',
-                        backgroundColor: 'rgba(0,0,0,0.7)',
-                        color: 'white',
-                        border: 'none',
-                        fontSize: '16px',
-                        cursor: 'pointer',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center'
-                      }}
+                      className="photo-remove-btn"
+                      onClick={(e) => { e.stopPropagation(); removePhoto(index); }}
                     >×</button>
                   </>
                 ) : (
-                  <div style={{ textAlign: 'center' }}>
-                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" strokeWidth="1.5">
-                      <path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z" />
-                      <circle cx="12" cy="13" r="3" />
+                  isNextEmpty && (
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" strokeWidth="2">
+                      <line x1="12" y1="5" x2="12" y2="19" />
+                      <line x1="5" y1="12" x2="19" y2="12" />
                     </svg>
-                    <span style={{ display: 'block', fontSize: '10px', color: '#9ca3af', marginTop: '2px', fontWeight: 500 }}>{slot}</span>
-                  </div>
+                  )
                 )}
               </div>
             );
           })}
         </div>
 
-        {/* Dynamic Buttons - Change based on photo count */}
-        {photos.length === 0 ? (
-          /* Initial State: Single Take Photo Button */
-          <button
-            className="btn-take-photos"
-            onClick={() => document.getElementById('photo-input')?.click()}
-            style={{ 
-              marginTop: '16px', 
-              marginBottom: '16px',
-              padding: '12px 24px',
-              fontSize: '14px',
-              width: 'auto',
-              minWidth: '290px',
-              alignSelf: 'center'
-            }}
-          >
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
-              <circle cx="12" cy="13" r="4" />
-            </svg>
-            Take Photos
-          </button>
-        ) : (
-          /* Has Photos: Continue + Take More Buttons */
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', width: '100%', maxWidth: '300px', margin: '16px auto' }}>
-            {/* Primary: Continue */}
-            <button
-              onClick={handleContinue}
-              style={{
-                width: '100%',
-                padding: '14px',
-                backgroundColor: '#111827',
-                color: 'white',
-                border: 'none',
-                borderRadius: '9999px',
-                fontSize: '14px',
-                fontWeight: 600,
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '8px'
-              }}
-            >
-              Continue with {photos.length}
-            </button>
+        {/* Helper Text */}
+        <p className="photo-helper-text">
+          {photos.length > 0 ? 'Tap to add or replace' : 'Tap box to add photo'}
+        </p>
 
-            {/* Secondary: Take More (only if < 4) */}
-            {photos.length < 4 && (
-              <button
-                onClick={() => document.getElementById('photo-input')?.click()}
-                style={{
-                  width: '100%',
-                  padding: '14px',
-                  backgroundColor: 'white',
-                  color: '#111827',
-                  border: '1px solid #111827',
-                  borderRadius: '9999px',
-                  fontSize: '14px',
-                  fontWeight: 600,
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '8px'
-                }}
-              >
-                + Take More
-              </button>
-            )}
-          </div>
+        {/* Continue to Write Button */}
+        {photos.length > 0 && (
+          <button className="btn-continue-write" onClick={handleContinueToWrite}>
+            Continue to Write
+          </button>
         )}
       </div>
-
-      {/* Bottom Placeholder to maintain spacing if needed */}
-      <div className="photos-actions"></div>
     </div>
   );
 }

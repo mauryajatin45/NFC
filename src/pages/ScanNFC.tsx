@@ -159,6 +159,11 @@ export default function ScanNFC() {
 
   return (
     <div className="scan-page">
+      {/* Black Header Strip */}
+      <div className="header-strip">
+        <span className="header-order-id">{orderId}</span>
+      </div>
+
       {/* Cancel Button */}
       <button className="cancel-btn" onClick={handleCancel}>
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -166,12 +171,6 @@ export default function ScanNFC() {
         </svg>
         Cancel
       </button>
-
-      {/* Order Header */}
-      <div style={{ textAlign: 'center', marginBottom: '10px' }}>
-        <span style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.1em', fontWeight: 500, color: '#9ca3af' }}>Order</span>
-        <span style={{ fontFamily: 'monospace', fontSize: '12px', color: '#000000', marginLeft: '12px', letterSpacing: '0.05em' }}>{orderId}</span>
-      </div>
 
       {/* Step Indicator */}
       <div className="step-indicator">

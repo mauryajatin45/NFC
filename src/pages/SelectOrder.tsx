@@ -73,7 +73,9 @@ export default function SelectOrder() {
 
   const handleEnroll = () => {
     if (selectedOrderId) {
+      const selectedOrder = orders.find(o => o.id === selectedOrderId);
       localStorage.setItem("currentOrderId", selectedOrderId);
+      localStorage.setItem("currentOrderName", selectedOrder?.name || selectedOrderId);
       navigate("/scan");
     }
   };

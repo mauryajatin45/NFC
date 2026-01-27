@@ -2,10 +2,12 @@ import { useNavigate } from "react-router-dom";
 
 export default function Success() {
   const navigate = useNavigate();
+  const orderName = localStorage.getItem("currentOrderName") || localStorage.getItem("currentOrderId") || "ORD-00847";
 
   const handleScanNext = () => {
     // Clear enrollment data
     localStorage.removeItem("currentOrderId");
+    localStorage.removeItem("currentOrderName");
     localStorage.removeItem("nfcUid");
     localStorage.removeItem("nfcToken");
     localStorage.removeItem("gps");
@@ -17,6 +19,11 @@ export default function Success() {
 
   return (
     <div className="success-page">
+      {/* Black Header Strip */}
+      <div className="header-strip">
+        <span className="header-order-id">{orderName}</span>
+      </div>
+
       {/* Step Indicator */}
       <div className="step-indicator">
         <div 
