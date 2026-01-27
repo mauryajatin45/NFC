@@ -175,7 +175,13 @@ export default function SelectOrder() {
               <div
                 key={order.id}
                 className={`order-card ${selectedOrderId === order.id ? "selected" : ""}`}
-                onClick={() => setSelectedOrderId(order.id)}
+                onClick={() => {
+                  if (selectedOrderId === order.id) {
+                    handleEnroll();
+                  } else {
+                    setSelectedOrderId(order.id);
+                  }
+                }}
               >
                 <div className="order-card-header">
                   <div className="order-indicator">
