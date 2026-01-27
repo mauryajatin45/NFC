@@ -15,6 +15,8 @@ interface Order {
   currencySymbol: string;
   shippingStatus: string;
   shippingColor: string;
+  customerName: string;
+  createdAt: string;
 }
 
 export default function SelectOrder() {
@@ -76,9 +78,29 @@ export default function SelectOrder() {
     }
   };
 
-  const getPrimaryProduct = (order: Order) => {
-    if (order.items.length === 0) return "Unknown Product";
-    return order.items[0].title;
+
+
+  const formatItemSummary = (order: Order) => {
+    if (order.items.length === 0) return "No items";
+    const firstItem = order.items[0];
+    const firstQty = firstItem.quantity;
+    const remainingCount = order.itemCount - firstQty;
+    
+    if (remainingCount <= 0) {
+      return firstItem.title + (firstQty > 1 ? ` (x${firstQty})` : "");
+    }
+    
+    return `${firstItem.title} + ${remainingCount} more`;
+  };
+
+  const formatTimeAgo = (dateString: string) => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffInHours = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60));
+    
+    if (diffInHours < 1) return "Just now";
+    if (diffInHours === 1) return "Placed 1 hour ago";
+    return `Placed ${diffInHours} hours ago`;
   };
 
   return (
@@ -158,19 +180,16 @@ export default function SelectOrder() {
                     <div className={`indicator-dot ${selectedOrderId === order.id ? "active" : ""}`} />
                   </div>
                   <div className="order-details">
-                    <div className="order-id">{order.name}</div>
-                    <div className="order-product">{getPrimaryProduct(order)}</div>
+                    <div className="order-customer">{order.customerName}</div>
+                    <div className="order-summary">{formatItemSummary(order)}</div>
                     <div className="order-meta">
-                      {order.itemCount} {order.itemCount === 1 ? "item" : "items"}
+                      <span>{order.itemCount} {order.itemCount === 1 ? "item" : "items"}</span>
+                      <span className="meta-dot"> • </span>
+                      <span>{formatTimeAgo(order.createdAt)}</span>
                     </div>
                   </div>
                   <div className="order-right">
-                    <div className="order-price">
-                      {order.currencySymbol}{order.totalPrice}
-                    </div>
-                    <span className={`shipping-label shipping-${order.shippingColor}`}>
-                      {order.shippingStatus}
-                    </span>
+                    <div className="order-id">{order.name}</div>
                   </div>
                 </div>
               </div>
