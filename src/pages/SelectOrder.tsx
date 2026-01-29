@@ -105,6 +105,15 @@ export default function SelectOrder() {
     return `Placed ${diffInHours} hours ago`;
   };
 
+  /* Sort Logic */
+  const [sortOrder, setSortOrder] = useState<"newest" | "oldest">("newest");
+
+  const sortedOrders = [...orders].sort((a, b) => {
+    const dateA = new Date(a.createdAt).getTime();
+    const dateB = new Date(b.createdAt).getTime();
+    return sortOrder === "newest" ? dateB - dateA : dateA - dateB;
+  });
+
   return (
     <div className="select-order-container">
       {/* Header */}
@@ -116,20 +125,49 @@ export default function SelectOrder() {
       {/* Search Section */}
       <div className="search-section">
         <label className="search-label">ORDER ID</label>
-        <input
-          type="text"
-          className="search-input"
-          placeholder="Enter order # or tap scan"
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && handleSearch()}
-        />
+        <div className="search-input-wrapper">
+          <svg 
+            className="search-icon" 
+            width="16" 
+            height="16" 
+            viewBox="0 0 24 24" 
+            fill="none" 
+            stroke="currentColor" 
+            strokeWidth="2" 
+            strokeLinecap="round" 
+            strokeLinejoin="round"
+          >
+            <circle cx="11" cy="11" r="8"></circle>
+            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+          </svg>
+          <input
+            type="text"
+            className="search-input"
+            placeholder="Enter order # or tap scan"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && handleSearch()}
+          />
+        </div>
       </div>
 
       {/* Orders List Section */}
       <div className="orders-section">
         <div className="orders-header">
-          <span className="orders-label">READY FOR ENROLLMENT</span>
+          <div className="sort-container">
+            <span className="sort-label">Sort:</span>
+            <div className="sort-dropdown-wrapper">
+              <select 
+                className="sort-select"
+                value={sortOrder}
+                onChange={(e) => setSortOrder(e.target.value as "newest" | "oldest")}
+              >
+                <option value="newest">Newest first</option>
+                <option value="oldest">Oldest first</option>
+              </select>
+            </div>
+          </div>
+
           <button className="refresh-btn" onClick={handleRefresh} disabled={loading}>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <polyline points="23 4 23 10 17 10" />
@@ -171,7 +209,7 @@ export default function SelectOrder() {
         {/* Orders List */}
         {!loading && !error && orders.length > 0 && (
           <div className="orders-list">
-            {orders.map((order) => (
+            {sortedOrders.map((order) => (
               <div
                 key={order.id}
                 className={`order-card ${selectedOrderId === order.id ? "selected" : ""}`}
@@ -184,9 +222,6 @@ export default function SelectOrder() {
                 }}
               >
                 <div className="order-card-header">
-                  <div className="order-indicator">
-                    <div className={`indicator-dot ${selectedOrderId === order.id ? "active" : ""}`} />
-                  </div>
                   <div className="order-details">
                     <div className="order-customer">{order.customerName}</div>
                     <div className="order-summary">{formatItemSummary(order)}</div>
