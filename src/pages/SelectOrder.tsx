@@ -119,7 +119,7 @@ export default function SelectOrder() {
       {/* Header */}
       <div className="select-order-header">
         <h1 className="select-order-title">Select Order</h1>
-        <p className="select-order-subtitle">Choose an order to begin NFC enrollment.</p>
+        <p className="select-order-subtitle">Choose an order to begin enrollment.</p>
       </div>
 
       {/* Search Section */}
