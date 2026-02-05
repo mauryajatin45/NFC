@@ -37,7 +37,7 @@ export default function WriteNFC() {
                        window.webkit?.messageHandlers?.nfcWriteBridge !== undefined;
 
   // Generate the URL to write
-  const urlToWrite = nfcToken ? `http://in.ink/t/${nfcToken}` : "";
+  const urlToWrite = nfcToken ? `https://in.ink/${nfcToken}` : "";
 
   useEffect(() => {
     // Redirect if no token available
