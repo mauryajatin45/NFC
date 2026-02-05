@@ -11,7 +11,7 @@ class ViewController: UIViewController, WKScriptMessageHandler, NFCTagReaderSess
     var isWriteMode: Bool = false // Track if we're in write mode
     
     // URL of your hosted web app
-    let webAppUrl = "https://nfc-indol.vercel.app/"
+    let webAppUrl = "https://warehouse-bee05.web.app/"
 
     override func viewDidLoad() {
         super.viewDidLoad()
