@@ -131,27 +131,54 @@ export default function ScanNFC() {
       setScanSuccess(true);
     }, 600);
     
-    // Get GPS immediately
-    if ("geolocation" in navigator) {
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          const gps = {
-            lat: position.coords.latitude,
-            lng: position.coords.longitude,
-          };
-          localStorage.setItem("gps", JSON.stringify(gps));
-        },
-        (error) => {
-          console.error("GPS Error", error);
-        }
-      );
-    }
-
     // Navigate after blink + checkmark animation (600ms blink + 500ms checkmark = 1100ms total)
     setTimeout(() => {
       navigate("/photos");
     }, 1100);
   };
+
+  const getGPS = () => {
+    if (!("geolocation" in navigator)) {
+      setStatus("GPS not supported");
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const gps = {
+          lat: position.coords.latitude,
+          lng: position.coords.longitude,
+        };
+        localStorage.setItem("gps", JSON.stringify(gps));
+        // Auto-start scan once GPS is found
+        startScan();
+      },
+      (error) => {
+        console.error("GPS Error", error);
+        setStatus("Location required. Enable GPS & Retry.");
+        setIsScanning(false);
+      },
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
+  };
+
+  // ✅ AUTO-START (Modified to check GPS first)
+  useEffect(() => {
+    if (!scanSuccess && !isScanning && !autoStarted) {
+      setAutoStarted(true);
+      
+      // Check GPS first
+      if (!localStorage.getItem("gps")) {
+         setStatus("Acquiring Location...");
+         getGPS();
+      } else {
+         // Have GPS, start scan
+         setTimeout(() => {
+            startScan();
+         }, 300);
+      }
+    }
+  }, [scanSuccess, isScanning, autoStarted]);
 
   const handleCancel = () => {
     navigate("/order/select");

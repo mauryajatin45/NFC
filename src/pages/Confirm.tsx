@@ -195,7 +195,8 @@ export default function Confirm() {
         serial_number: nfcUid,  // This is the NFC serial number from scan
         photo_urls: photoUrls,
         photo_hashes: photoHashes,
-        shipping_address_gps: gps,
+        shipping_address_gps: gps, // Still sending as shipping for legacy compatibility
+        warehouse_gps: gps,        // Send device location as Warehouse Location
       };
 
       const response = await fetch(`${API_BASE}/api/enroll`, {
