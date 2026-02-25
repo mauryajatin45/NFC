@@ -4,20 +4,32 @@ import { useNavigate } from "react-router-dom";
 interface OrderItem {
   title: string;
   quantity: number;
+  sku: string | null;
+  price: string | null;
 }
 
 interface Order {
   id: string;
+  gid: string;
   name: string;
   items: OrderItem[];
   itemCount: number;
   totalPrice: string;
+  currencyCode: string;
   currencySymbol: string;
   shippingStatus: string;
   shippingColor: string;
   customerName: string;
   createdAt: string;
+  shippingAddress: string | null;
+  orderDetails: {
+    line_items: { title: string; quantity: number; price: string | null; sku: string | null }[];
+    total_price: string;
+    currency: string;
+  };
 }
+
+const API_BASE = import.meta.env.VITE_API_BASE_URL || "https://shopify-app-250065525755.us-central1.run.app";
 
 export default function SelectOrder() {
   const [orders, setOrders] = useState<Order[]>([]);
@@ -25,24 +37,40 @@ export default function SelectOrder() {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [sortOrder, setSortOrder] = useState<"newest" | "oldest">("newest");
   const navigate = useNavigate();
 
-  const API_BASE = import.meta.env.VITE_API_BASE_URL || "https://shopify-app-250065525755.us-central1.run.app";
+  const getToken = () => localStorage.getItem("token") || "";
 
-  const fetchOrders = async () => {
+  const fetchOrders = async (search = "") => {
     setLoading(true);
     setError(null);
-    
+
+    const token = getToken();
+    if (!token) {
+      navigate("/login");
+      return;
+    }
+
     try {
-      const searchParam = searchTerm ? `?search=${encodeURIComponent(searchTerm)}` : "";
-      const response = await fetch(`${API_BASE}/api/orders/fetch${searchParam}`);
-      
+      const searchParam = search ? `?search=${encodeURIComponent(search)}` : "";
+      const response = await fetch(`${API_BASE}/app/api/orders${searchParam}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (response.status === 401) {
+        // Token expired or invalid → back to login
+        localStorage.clear();
+        navigate("/login");
+        return;
+      }
+
       if (!response.ok) {
         throw new Error(`Failed to fetch orders: ${response.status}`);
       }
-      
+
       const data = await response.json();
-      
+
       if (data.success) {
         setOrders(data.orders || []);
       } else {
@@ -61,9 +89,7 @@ export default function SelectOrder() {
     fetchOrders();
   }, []);
 
-  const handleSearch = () => {
-    fetchOrders();
-  };
+  const handleSearch = () => fetchOrders(searchTerm);
 
   const handleRefresh = () => {
     setSearchTerm("");
@@ -72,26 +98,26 @@ export default function SelectOrder() {
   };
 
   const handleEnroll = () => {
-    if (selectedOrderId) {
-      const selectedOrder = orders.find(o => o.id === selectedOrderId);
-      localStorage.setItem("currentOrderId", selectedOrderId);
-      localStorage.setItem("currentOrderName", selectedOrder?.name || selectedOrderId);
-      navigate("/scan");
-    }
+    if (!selectedOrderId) return;
+    const selectedOrder = orders.find((o) => o.id === selectedOrderId);
+    if (!selectedOrder) return;
+
+    // Store everything the enrollment needs
+    localStorage.setItem("currentOrderId", selectedOrder.id);
+    localStorage.setItem("currentOrderGid", selectedOrder.gid);
+    localStorage.setItem("currentOrderName", selectedOrder.name);
+    localStorage.setItem("currentOrderDetails", JSON.stringify(selectedOrder.orderDetails));
+    localStorage.setItem("currentShippingAddress", selectedOrder.shippingAddress || "");
+
+    navigate("/scan");
   };
-
-
 
   const formatItemSummary = (order: Order) => {
     if (order.items.length === 0) return "No items";
     const firstItem = order.items[0];
     const firstQty = firstItem.quantity;
     const remainingCount = order.itemCount - firstQty;
-    
-    if (remainingCount <= 0) {
-      return firstItem.title + (firstQty > 1 ? ` (x${firstQty})` : "");
-    }
-    
+    if (remainingCount <= 0) return firstItem.title + (firstQty > 1 ? ` (x${firstQty})` : "");
     return `${firstItem.title} + ${remainingCount} more`;
   };
 
@@ -99,14 +125,10 @@ export default function SelectOrder() {
     const date = new Date(dateString);
     const now = new Date();
     const diffInHours = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60));
-    
     if (diffInHours < 1) return "Just now";
     if (diffInHours === 1) return "Placed 1 hour ago";
     return `Placed ${diffInHours} hours ago`;
   };
-
-  /* Sort Logic */
-  const [sortOrder, setSortOrder] = useState<"newest" | "oldest">("newest");
 
   const sortedOrders = [...orders].sort((a, b) => {
     const dateA = new Date(a.createdAt).getTime();
@@ -126,17 +148,7 @@ export default function SelectOrder() {
       <div className="search-section">
         <label className="search-label">ORDER ID</label>
         <div className="search-input-wrapper">
-          <svg 
-            className="search-icon" 
-            width="16" 
-            height="16" 
-            viewBox="0 0 24 24" 
-            fill="none" 
-            stroke="currentColor" 
-            strokeWidth="2" 
-            strokeLinecap="round" 
-            strokeLinejoin="round"
-          >
+          <svg className="search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <circle cx="11" cy="11" r="8"></circle>
             <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
           </svg>
@@ -157,11 +169,7 @@ export default function SelectOrder() {
           <div className="sort-container">
             <span className="sort-label">Sort:</span>
             <div className="sort-dropdown-wrapper">
-              <select 
-                className="sort-select"
-                value={sortOrder}
-                onChange={(e) => setSortOrder(e.target.value as "newest" | "oldest")}
-              >
+              <select className="sort-select" value={sortOrder} onChange={(e) => setSortOrder(e.target.value as "newest" | "oldest")}>
                 <option value="newest">Newest first</option>
                 <option value="oldest">Oldest first</option>
               </select>
@@ -190,19 +198,15 @@ export default function SelectOrder() {
         {error && !loading && (
           <div className="error-state">
             <p>❌ {error}</p>
-            <button className="btn-retry" onClick={handleRefresh}>
-              Retry
-            </button>
+            <button className="btn-retry" onClick={handleRefresh}>Retry</button>
           </div>
         )}
 
         {/* Empty State */}
         {!loading && !error && orders.length === 0 && (
           <div className="empty-state">
-            <p>No orders ready for enrollment</p>
-            <button className="btn-retry" onClick={handleRefresh}>
-              Refresh
-            </button>
+            <p>No unfulfilled orders found</p>
+            <button className="btn-retry" onClick={handleRefresh}>Refresh</button>
           </div>
         )}
 
@@ -243,11 +247,7 @@ export default function SelectOrder() {
 
       {/* Enroll Button */}
       <div className="enroll-button-container">
-        <button
-          className="btn-enroll"
-          onClick={handleEnroll}
-          disabled={!selectedOrderId || loading}
-        >
+        <button className="btn-enroll" onClick={handleEnroll} disabled={!selectedOrderId || loading}>
           Enroll
         </button>
       </div>
