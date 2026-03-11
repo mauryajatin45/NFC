@@ -1,256 +1,133 @@
-import { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { AppLayout } from "@/components/AppLayout";
+import { PageHeader } from "@/components/PageHeader";
+import { OrderCard } from "@/components/OrderCard";
+import { cn } from "@/lib/utils";
+import { Search, SlidersHorizontal, RefreshCw, Loader2, AlertCircle } from "lucide-react";
+import { useOrders } from "@/hooks/useOrders";
+import type { Order } from "@/services/api";
 
-interface OrderItem {
-  title: string;
-  quantity: number;
-  sku: string | null;
-  price: string | null;
-}
+type SortOption = "oldest" | "newest";
 
-interface Order {
-  id: string;
-  gid: string;
-  name: string;
-  items: OrderItem[];
-  itemCount: number;
-  totalPrice: string;
-  currencyCode: string;
-  currencySymbol: string;
-  shippingStatus: string;
-  shippingColor: string;
-  customerName: string;
-  createdAt: string;
-  shippingAddress: string | null;
-  orderDetails: {
-    line_items: { title: string; quantity: number; price: string | null; sku: string | null }[];
-    total_price: string;
-    currency: string;
-  };
-}
-
-const API_BASE = import.meta.env.VITE_API_BASE_URL || "https://shopify-app-250065525755.us-central1.run.app";
-
-export default function SelectOrder() {
-  const [orders, setOrders] = useState<Order[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [sortOrder, setSortOrder] = useState<"newest" | "oldest">("newest");
-  const navigate = useNavigate();
-
-  const getToken = () => localStorage.getItem("token") || "";
-
-  const fetchOrders = async (search = "") => {
-    setLoading(true);
-    setError(null);
-
-    const token = getToken();
-    if (!token) {
-      navigate("/login");
-      return;
-    }
-
-    try {
-      const searchParam = search ? `?search=${encodeURIComponent(search)}` : "";
-      const response = await fetch(`${API_BASE}/app/api/orders${searchParam}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-
-      if (response.status === 401) {
-        // Token expired or invalid → back to login
-        localStorage.clear();
-        navigate("/login");
-        return;
-      }
-
-      if (!response.ok) {
-        throw new Error(`Failed to fetch orders: ${response.status}`);
-      }
-
-      const data = await response.json();
-
-      if (data.success) {
-        setOrders(data.orders || []);
-      } else {
-        throw new Error(data.error || "Failed to load orders");
-      }
-    } catch (err: any) {
-      console.error("Error fetching orders:", err);
-      setError(err.message || "Failed to load orders");
-      setOrders([]);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchOrders();
-  }, []);
-
-  const handleSearch = () => fetchOrders(searchTerm);
-
-  const handleRefresh = () => {
-    setSearchTerm("");
-    setSelectedOrderId(null);
-    fetchOrders();
-  };
-
-  const handleEnroll = () => {
-    if (!selectedOrderId) return;
-    const selectedOrder = orders.find((o) => o.id === selectedOrderId);
-    if (!selectedOrder) return;
-
-    // Store everything the enrollment needs
-    localStorage.setItem("currentOrderId", selectedOrder.id);
-    localStorage.setItem("currentOrderGid", selectedOrder.gid);
-    localStorage.setItem("currentOrderName", selectedOrder.name);
-    localStorage.setItem("currentOrderDetails", JSON.stringify(selectedOrder.orderDetails));
-    localStorage.setItem("currentShippingAddress", selectedOrder.shippingAddress || "");
-
-    navigate("/scan");
-  };
-
-  const formatItemSummary = (order: Order) => {
-    if (order.items.length === 0) return "No items";
-    const firstItem = order.items[0];
-    const firstQty = firstItem.quantity;
-    const remainingCount = order.itemCount - firstQty;
-    if (remainingCount <= 0) return firstItem.title + (firstQty > 1 ? ` (x${firstQty})` : "");
-    return `${firstItem.title} + ${remainingCount} more`;
-  };
-
-  const formatTimeAgo = (dateString: string) => {
-    const date = new Date(dateString);
-    const now = new Date();
-    const diffInHours = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60));
-    if (diffInHours < 1) return "Just now";
-    if (diffInHours === 1) return "Placed 1 hour ago";
-    return `Placed ${diffInHours} hours ago`;
-  };
-
-  const sortedOrders = [...orders].sort((a, b) => {
+function sortOrders(orders: Order[], sortBy: SortOption): Order[] {
+  return [...orders].sort((a, b) => {
     const dateA = new Date(a.createdAt).getTime();
     const dateB = new Date(b.createdAt).getTime();
-    return sortOrder === "newest" ? dateB - dateA : dateA - dateB;
+    return sortBy === "oldest" ? dateA - dateB : dateB - dateA;
   });
+}
+
+export default function SelectOrder() {
+  const navigate = useNavigate();
+  const { data: orders, isLoading, isError, error, refetch, isRefetching } = useOrders();
+  
+  const [searchQuery, setSearchQuery] = useState("");
+  const [sortBy, setSortBy] = useState<SortOption>("newest");
+
+  const handleOrderTap = (id: string) => {
+    navigate("/enroll-nfc", { state: { orderId: id } });
+  };
+
+  // Only show orders that need enrolling (pending/ready), filtered by search
+  const filteredOrders = React.useMemo(() => {
+    if (!orders) return [];
+    
+    return sortOrders(
+      orders
+        .filter((order) => order.status === "pending" || order.status === "ready")
+        .filter((order) =>
+          order.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          order.customer.name.toLowerCase().includes(searchQuery.toLowerCase())
+        ),
+      sortBy
+    );
+  }, [orders, searchQuery, sortBy]);
 
   return (
-    <div className="select-order-container">
-      {/* Header */}
-      <div className="select-order-header">
-        <h1 className="select-order-title">Select Order</h1>
-        <p className="select-order-subtitle">Choose an order to begin enrollment.</p>
-      </div>
+    <AppLayout>
+      <div className="px-4 py-6 max-w-2xl mx-auto">
+        <PageHeader title="Enroll" />
 
-      {/* Search Section */}
-      <div className="search-section">
-        <label className="search-label">ORDER ID</label>
-        <div className="search-input-wrapper">
-          <svg className="search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <circle cx="11" cy="11" r="8"></circle>
-            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-          </svg>
+        {/* Search bar */}
+        <div className="relative mb-4">
+          <Search size={18} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
           <input
             type="text"
-            className="search-input"
-            placeholder="Enter order # or tap scan"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && handleSearch()}
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Search by order number or customer name"
+            className="w-full h-11 pl-10 pr-4 bg-card border border-border text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
           />
         </div>
-      </div>
 
-      {/* Orders List Section */}
-      <div className="orders-section">
-        <div className="orders-header">
-          <div className="sort-container">
-            <span className="sort-label">Sort:</span>
-            <div className="sort-dropdown-wrapper">
-              <select className="sort-select" value={sortOrder} onChange={(e) => setSortOrder(e.target.value as "newest" | "oldest")}>
-                <option value="newest">Newest first</option>
-                <option value="oldest">Oldest first</option>
-              </select>
-            </div>
-          </div>
+        {/* Create Order button */}
+        <button
+          type="button"
+          onClick={() => navigate("/create-order")}
+          className="w-full h-11 mb-4 flex items-center justify-center gap-2 bg-card border border-dashed border-border text-sm text-muted-foreground hover:text-foreground hover:border-foreground/40 transition-colors"
+        >
+          <span className="text-lg leading-none">+</span>
+          <span>Create Order Manually</span>
+        </button>
 
-          <button className="refresh-btn" onClick={handleRefresh} disabled={loading}>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <polyline points="23 4 23 10 17 10" />
-              <polyline points="1 20 1 14 7 14" />
-              <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
-            </svg>
-            Refresh
+        {/* Sort + Refresh row */}
+        <div className="flex items-center justify-between mb-4">
+          <button
+            type="button"
+            onClick={() => setSortBy(sortBy === "newest" ? "oldest" : "newest")}
+            className="flex items-center gap-2 px-3 py-2 bg-card border border-border text-sm text-foreground hover:bg-secondary/50 transition-colors"
+          >
+            <SlidersHorizontal size={14} />
+            <span>Sort</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => refetch()}
+            disabled={isRefetching}
+            className="flex items-center justify-center w-10 h-10 bg-card border border-border hover:bg-secondary/50 transition-colors disabled:opacity-50"
+          >
+            <RefreshCw size={16} className={cn(isRefetching && "animate-spin")} />
           </button>
         </div>
 
-        {/* Loading State */}
-        {loading && (
-          <div className="loading-state">
-            <div className="spinner"></div>
-            <p>Loading orders...</p>
-          </div>
-        )}
-
-        {/* Error State */}
-        {error && !loading && (
-          <div className="error-state">
-            <p>❌ {error}</p>
-            <button className="btn-retry" onClick={handleRefresh}>Retry</button>
-          </div>
-        )}
-
-        {/* Empty State */}
-        {!loading && !error && orders.length === 0 && (
-          <div className="empty-state">
-            <p>No unfulfilled orders found</p>
-            <button className="btn-retry" onClick={handleRefresh}>Refresh</button>
-          </div>
-        )}
-
-        {/* Orders List */}
-        {!loading && !error && orders.length > 0 && (
-          <div className="orders-list">
-            {sortedOrders.map((order) => (
-              <div
-                key={order.id}
-                className={`order-card ${selectedOrderId === order.id ? "selected" : ""}`}
-                onClick={() => {
-                  if (selectedOrderId === order.id) {
-                    handleEnroll();
-                  } else {
-                    setSelectedOrderId(order.id);
-                  }
-                }}
+        {/* Order list */}
+        <div className="bg-card border border-border overflow-hidden rounded-2xl">
+          {isLoading ? (
+            <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
+              <Loader2 size={24} className="animate-spin mb-2" />
+              <p className="text-sm">Loading orders...</p>
+            </div>
+          ) : isError ? (
+            <div className="flex flex-col items-center justify-center py-16 text-destructive">
+              <AlertCircle size={24} className="mb-2" />
+              <p className="text-sm">{error?.message || "Failed to load orders"}</p>
+              <button
+                type="button"
+                onClick={() => refetch()}
+                className="mt-2 text-xs underline hover:no-underline"
               >
-                <div className="order-card-header">
-                  <div className="order-details">
-                    <div className="order-customer">{order.customerName}</div>
-                    <div className="order-summary">{formatItemSummary(order)}</div>
-                    <div className="order-meta">
-                      <span>{order.itemCount} {order.itemCount === 1 ? "item" : "items"}</span>
-                      <span className="meta-dot"> • </span>
-                      <span>{formatTimeAgo(order.createdAt)}</span>
-                    </div>
-                  </div>
-                  <div className="order-right">
-                    <div className="order-id">{order.name}</div>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
+                Try again
+              </button>
+            </div>
+          ) : filteredOrders.length > 0 ? (
+            <div>
+              {filteredOrders.map((order) => (
+                <OrderCard
+                  key={order.id}
+                  order={order}
+                  isSelected={false}
+                  onSelect={handleOrderTap}
+                />
+              ))}
+            </div>
+          ) : (
+            <p className="text-center text-muted-foreground text-sm py-16">
+              No orders to enroll.
+            </p>
+          )}
+        </div>
       </div>
-
-      {/* Enroll Button */}
-      <div className="enroll-button-container">
-        <button className="btn-enroll" onClick={handleEnroll} disabled={!selectedOrderId || loading}>
-          Enroll
-        </button>
-      </div>
-    </div>
+    </AppLayout>
   );
 }

@@ -1,16 +1,18 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import LoadingOverlay from "../components/LoadingOverlay";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || "https://shopify-app-250065525755.us-central1.run.app";
+const MAX_FILES = 10;
 
 export default function CapturePhotos() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [loadingMessage, setLoadingMessage] = useState("");
   const [loadingProgress, setLoadingProgress] = useState({ current: 0, total: 0 });
-  const [photos, setPhotos] = useState<File[]>([]);
-  const [photoPreviews, setPhotoPreviews] = useState<string[]>([]);
+  
+  const [mediaFiles, setMediaFiles] = useState<File[]>([]);
+  const [mediaPreviews, setMediaPreviews] = useState<{url: string; type: string}[]>([]);
 
   const orderId = localStorage.getItem("currentOrderId");
   const orderName = localStorage.getItem("currentOrderName") || orderId || "ORD-UNKNOWN";
@@ -20,7 +22,19 @@ export default function CapturePhotos() {
   const shippingAddress = localStorage.getItem("currentShippingAddress") || undefined;
   const token = localStorage.getItem("token") || "";
 
+  // Cleanup object URLs to prevent memory leaks when component unmounts
+  useEffect(() => {
+    return () => {
+      mediaPreviews.forEach((preview) => URL.revokeObjectURL(preview.url));
+    };
+  }, []);
+
   const compressImage = async (file: File): Promise<File> => {
+    // If it's a video, we cannot easily compress it in the browser, so pass it through
+    if (file.type.startsWith("video/")) {
+      return file;
+    }
+
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
       reader.readAsDataURL(file);
@@ -50,42 +64,54 @@ export default function CapturePhotos() {
 
   const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(event.target.files || []);
-    if (photos.length + files.length > 4) { alert("Maximum 4 photos allowed"); return; }
+    if (mediaFiles.length + files.length > MAX_FILES) { 
+      alert(`Maximum ${MAX_FILES} attachments allowed`); 
+      return; 
+    }
+    
     try {
-      const compressed = await Promise.all(files.map(compressImage));
-      const newPhotos = [...photos, ...compressed].slice(0, 4);
-      setPhotos(newPhotos);
-      compressed.forEach((file) => {
-        const reader = new FileReader();
-        reader.onloadend = () => setPhotoPreviews((prev) => [...prev, reader.result as string]);
-        reader.readAsDataURL(file);
-      });
+      const processed = await Promise.all(files.map(compressImage));
+      
+      const newFiles = [...mediaFiles, ...processed].slice(0, MAX_FILES);
+      setMediaFiles(newFiles);
+      
+      // Use URL.createObjectURL which is instantaneous and consumes virtually 0 memory
+      // compared to reading heavy videos into a base64 string via FileReader.
+      const newPreviews = processed.map(file => ({
+        url: URL.createObjectURL(file),
+        type: file.type
+      }));
+      setMediaPreviews((prev) => [...prev, ...newPreviews]);
+      
       event.target.value = "";
     } catch (err) {
-      console.error("Compression error:", err);
-      alert("Failed to process images. Please try again.");
+      console.error("Processing error:", err);
+      alert("Failed to process media. Please try again.");
     }
   };
 
-  const removePhoto = (index: number) => {
-    setPhotos((prev) => prev.filter((_, i) => i !== index));
-    setPhotoPreviews((prev) => prev.filter((_, i) => i !== index));
+  const removeMedia = (index: number) => {
+    // Revoke the URL to free memory
+    URL.revokeObjectURL(mediaPreviews[index].url);
+    
+    setMediaFiles((prev) => prev.filter((_, i) => i !== index));
+    setMediaPreviews((prev) => prev.filter((_, i) => i !== index));
   };
 
   const handleContinueToWrite = async () => {
-    if (photos.length === 0) { alert("Please select at least 1 photo"); return; }
+    if (mediaFiles.length === 0) { alert("Please attach at least 1 photo or video"); return; }
     if (!orderId || !nfcUid) { alert("Missing order or NFC tag data. Please restart."); return; }
 
     setLoading(true);
 
     try {
-      // ── Step 1: Enroll the order with the INK API ──────────────────────────
+      // ── Step 1: Enroll the order with the INK API
       setLoadingMessage("Enrolling order...");
-      setLoadingProgress({ current: 1, total: photos.length + 2 });
+      setLoadingProgress({ current: 1, total: mediaFiles.length + 2 });
 
       const enrollBody: any = {
         orderId,
-        nfcToken: nfcUid, // Use NFC hardware UID as the token
+        nfcToken: nfcUid,
         nfcUid,
         shippingAddress,
         orderDetails,
@@ -117,15 +143,15 @@ export default function CapturePhotos() {
       localStorage.setItem("proofId", proofId);
       localStorage.setItem("nfcToken", nfcToken);
 
-      // ── Step 2: Upload photos to INK API ─────────────────────────────────
+      // ── Step 2: Upload photos/videos to INK API
       const formData = new FormData();
       formData.append("proof_id", proofId);
       formData.append("source", "warehouse");
 
-      for (let i = 0; i < photos.length; i++) {
-        setLoadingProgress({ current: i + 2, total: photos.length + 2 });
-        setLoadingMessage(`Uploading photo ${i + 1} of ${photos.length}...`);
-        formData.append("media", photos[i]);
+      for (let i = 0; i < mediaFiles.length; i++) {
+        setLoadingProgress({ current: i + 2, total: mediaFiles.length + 2 });
+        setLoadingMessage(`Uploading file ${i + 1} of ${mediaFiles.length}...`);
+        formData.append("media", mediaFiles[i]);
       }
 
       const uploadRes = await fetch(`${API_BASE}/app/api/warehouse/upload`, {
@@ -137,10 +163,10 @@ export default function CapturePhotos() {
       const uploadData = await uploadRes.json();
 
       if (!uploadRes.ok || !uploadData.success) {
-        throw new Error(uploadData.error || "Photo upload failed");
+        throw new Error(uploadData.error || "Media upload failed");
       }
 
-      setLoadingProgress({ current: photos.length + 2, total: photos.length + 2 });
+      setLoadingProgress({ current: mediaFiles.length + 2, total: mediaFiles.length + 2 });
       setLoadingMessage("Enrollment complete!");
 
       setTimeout(() => {
@@ -153,7 +179,7 @@ export default function CapturePhotos() {
     }
   };
 
-  const triggerFileInput = () => document.getElementById("photo-input")?.click();
+  const triggerFileInput = () => document.getElementById("media-input")?.click();
 
   return (
     <div className="photos-page">
@@ -167,10 +193,10 @@ export default function CapturePhotos() {
       {/* Hidden File Input */}
       <input
         type="file"
-        accept="image/*"
+        accept="image/*,video/*"
         capture="environment"
         multiple
-        id="photo-input"
+        id="media-input"
         style={{ display: "none" }}
         onChange={handleFileSelect}
       />
@@ -199,7 +225,7 @@ export default function CapturePhotos() {
         </svg>
         <div className="step active">
           <div className="step-number">2</div>
-          <div className="step-label">{photos.length > 0 ? `${photos.length}/4` : "Photos"}</div>
+          <div className="step-label">{mediaFiles.length > 0 ? `${mediaFiles.length}/${MAX_FILES}` : "Media"}</div>
         </div>
         <svg className="step-arrow" viewBox="0 0 12 12">
           <path d="M4 2L8 6L4 10" stroke="currentColor" strokeWidth="1.5" fill="none" strokeLinecap="round" strokeLinejoin="round" />
@@ -218,50 +244,64 @@ export default function CapturePhotos() {
       </div>
 
       {/* Content */}
-      <div className="photos-content" style={{ marginTop: "8px", justifyContent: "flex-start" }}>
-        <h1 className="photos-title">Capture Photos</h1>
+      <div className="photos-content" style={{ marginTop: "8px", justifyContent: "flex-start", overflowY: "auto", paddingBottom: "100px" }}>
+        <h1 className="photos-title">Capture Media</h1>
         <p className="photos-subtitle">
-          {photos.length > 0 ? `${photos.length}/4 captured` : "Tap a box to take a photo."}
+          {mediaFiles.length > 0 
+            ? `${mediaFiles.length} of ${MAX_FILES} attached` 
+            : "Tap here to capture photos or videos"}
         </p>
 
-        {/* Photo Grid - 2x2 */}
-        <div className="photo-grid-2x2">
-          {[0, 1, 2, 3].map((index) => {
-            const hasPhoto = photoPreviews[index];
-            const isNextEmpty = !hasPhoto && index === photos.length;
-            return (
-              <div
-                key={index}
-                className={`photo-box ${hasPhoto ? "filled" : ""} ${isNextEmpty ? "next-empty" : ""}`}
-                onClick={triggerFileInput}
-              >
-                {hasPhoto ? (
-                  <>
-                    <img src={photoPreviews[index]} alt={`Photo ${index + 1}`} className="photo-preview-img" />
-                    <div className="photo-checkmark">
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3">
-                        <polyline points="20 6 9 17 4 12" />
-                      </svg>
-                    </div>
-                    <button className="photo-remove-btn" onClick={(e) => { e.stopPropagation(); removePhoto(index); }}>×</button>
-                  </>
-                ) : (
-                  isNextEmpty && (
-                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" strokeWidth="2">
-                      <line x1="12" y1="5" x2="12" y2="19" />
-                      <line x1="5" y1="12" x2="19" y2="12" />
+        {/* Dynamic Grid */}
+        <div style={{ display: "flex", flexWrap: "wrap", gap: "12px", marginTop: "24px" }}>
+          {mediaPreviews.map((preview, index) => (
+            <div
+              key={index}
+              className="photo-box filled"
+              style={{ width: "calc(50% - 6px)", aspectRatio: "1/1", position: "relative" }}
+            >
+              {preview.type.startsWith("video/") ? (
+                <>
+                  <video src={preview.url} className="photo-preview-img" style={{ objectFit: "cover", width: "100%", height: "100%", borderRadius: "12px" }} />
+                  <div style={{ position: "absolute", top: "8px", left: "8px", background: "rgba(0,0,0,0.6)", padding: "4px 8px", borderRadius: "12px" }}>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="white" stroke="white" strokeWidth="2">
+                      <polygon points="5 3 19 12 5 21 5 3"></polygon>
                     </svg>
-                  )
-                )}
+                  </div>
+                </>
+              ) : (
+                <img src={preview.url} alt={`Media ${index + 1}`} className="photo-preview-img" style={{ objectFit: "cover", width: "100%", height: "100%", borderRadius: "12px" }} />
+              )}
+              
+              <div className="photo-checkmark">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3">
+                  <polyline points="20 6 9 17 4 12" />
+                </svg>
               </div>
-            );
-          })}
+              <button className="photo-remove-btn" onClick={(e) => { e.stopPropagation(); removeMedia(index); }}>×</button>
+            </div>
+          ))}
+
+          {mediaFiles.length < MAX_FILES && (
+            <div
+              className="photo-box next-empty"
+              onClick={triggerFileInput}
+              style={{ width: "calc(50% - 6px)", aspectRatio: "1/1", border: "2px dashed #e5e7eb", borderRadius: "12px", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", background: "#f9fafb" }}
+            >
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" strokeWidth="2">
+                <line x1="12" y1="5" x2="12" y2="19" />
+                <line x1="5" y1="12" x2="19" y2="12" />
+              </svg>
+            </div>
+          )}
         </div>
 
-        <p className="photo-helper-text">{photos.length > 0 ? "Tap to add or replace" : "Tap box to add photo"}</p>
+        <p className="photo-helper-text" style={{ marginTop: "16px" }}>
+          {mediaFiles.length > 0 ? "Tap + to add more" : "Tap the box above to start"}
+        </p>
 
-        {photos.length > 0 && (
-          <button className="btn-continue-write" onClick={handleContinueToWrite}>
+        {mediaFiles.length > 0 && (
+          <button className="btn-continue-write" onClick={handleContinueToWrite} style={{ marginTop: "24px" }}>
             Continue to Write
           </button>
         )}
