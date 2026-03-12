@@ -2,7 +2,6 @@ import { AppLayout } from "@/components/AppLayout";
 import { PageHeader } from "@/components/PageHeader";
 import { useInventory } from "@/hooks/useInventory";
 import { useOrders } from "@/hooks/useOrders";
-import { Progress } from "@/components/ui/progress";
 import { Loader2, Package, Nfc, CheckCircle, Clock, Zap } from "lucide-react";
 import { Link } from "react-router-dom";
 import { GlobalVerificationMap } from "@/components/GlobalVerificationMap";
@@ -14,10 +13,6 @@ export default function Dashboard() {
   const readyOrders = orders?.filter((o: any) => o.status === "ready").length || 0;
   const enrolledOrders = orders?.filter((o: any) => o.status === "enrolled").length || 0;
   const pendingOrders = orders?.filter((o: any) => o.status === "pending").length || 0;
-
-  const utilizationPercent = inventory 
-    ? Math.round((inventory.enrolled / inventory.total) * 100) 
-    : 0;
 
   return (
     <AppLayout>
@@ -43,31 +38,20 @@ export default function Dashboard() {
                     <span className="text-xs text-muted-foreground uppercase tracking-wider">Available Tags</span>
                     <Nfc size={16} className="text-muted-foreground" strokeWidth={1.5} />
                   </div>
-                  <p className="font-heading text-3xl font-normal">{inventory?.available.toLocaleString() || "—"}</p>
+                  <p className="font-heading text-3xl font-normal">{inventory?.current_count?.toLocaleString() || "—"}</p>
                   <p className="text-xs text-muted-foreground mt-1">stickers remaining</p>
                 </div>
                 <div>
                   <div className="flex items-start justify-between mb-2">
-                    <span className="text-xs text-muted-foreground uppercase tracking-wider">Enrolled</span>
+                    <span className="text-xs text-muted-foreground uppercase tracking-wider">Recent Activity</span>
                     <CheckCircle size={16} className="text-muted-foreground" strokeWidth={1.5} />
                   </div>
-                  <p className="font-heading text-3xl font-normal">{inventory?.enrolled.toLocaleString() || "—"}</p>
-                  <p className="text-xs text-muted-foreground mt-1">of {inventory?.total.toLocaleString() || 0} allocated</p>
+                  <p className="font-heading text-3xl font-normal">{inventory?.recent_transactions?.length || 0}</p>
+                  <p className="text-xs text-muted-foreground mt-1">transactions</p>
                 </div>
               </>
             )}
           </div>
-
-          {/* Utilization */}
-          {inventory && (
-            <div className="mt-6 pt-5 border-t border-border">
-              <div className="flex items-center justify-between mb-3">
-                <span className="text-xs text-muted-foreground uppercase tracking-wider">Utilization</span>
-                <span className="font-heading text-2xl font-normal">{utilizationPercent}%</span>
-              </div>
-              <Progress value={utilizationPercent} className="h-2" />
-            </div>
-          )}
         </div>
 
         {/* Orders Summary in white card */}

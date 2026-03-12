@@ -136,6 +136,7 @@ export default function Shipments() {
                   shipment={shipment}
                   isExpanded={expandedId === shipment.id}
                   onToggle={handleToggle}
+                  onRefetch={refetch}
                 />
               ))}
             </div>

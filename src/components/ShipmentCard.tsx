@@ -1,12 +1,17 @@
 import { cn } from "@/lib/utils";
-import { ChevronDown, Check, Tag, Zap, Truck, PackageCheck } from "lucide-react";
+import { ChevronDown, Check, Tag, Zap, Truck, PackageCheck, Loader2 } from "lucide-react";
 import type { Shipment, ShipmentStatus } from "@/services/api/shipments";
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
+import { Button } from "@/components/ui/button";
+import { useState } from "react";
+import { useToast } from "@/hooks/use-toast";
+import { markShipmentDelivered } from "@/services/api/shipments";
 
 interface ShipmentCardProps {
   shipment: Shipment;
   isExpanded: boolean;
   onToggle: (id: string) => void;
+  onRefetch?: () => void;
 }
 
 function formatDate(dateString: string): string {
@@ -74,9 +79,33 @@ function getStatusConfig(status: ShipmentStatus) {
   }
 }
 
-export function ShipmentCard({ shipment, isExpanded, onToggle }: ShipmentCardProps) {
+export function ShipmentCard({ shipment, isExpanded, onToggle, onRefetch }: ShipmentCardProps) {
   const statusConfig = getStatusConfig(shipment.status);
   const StatusIcon = statusConfig.Icon;
+  const { toast } = useToast();
+  const [isMarking, setIsMarking] = useState(false);
+
+  const handleMarkDelivered = async () => {
+    setIsMarking(true);
+    const { data, error } = await markShipmentDelivered(shipment.id);
+    setIsMarking(false);
+
+    if (error || !data) {
+      toast({
+        variant: "destructive",
+        title: "Update Failed",
+        description: error?.message || "Could not mark as delivered."
+      });
+      return;
+    }
+
+    toast({
+      title: "Success",
+      description: "Shipment marked as delivered."
+    });
+
+    if (onRefetch) onRefetch();
+  };
 
   return (
     <Collapsible open={isExpanded} onOpenChange={() => onToggle(shipment.id)}>
@@ -165,6 +194,22 @@ export function ShipmentCard({ shipment, isExpanded, onToggle }: ShipmentCardPro
               </div>
             )}
           </div>
+
+          {/* Action Row */}
+          {(shipment.status === "active" || shipment.status === "in_transit") && (
+            <div className="mt-4 pt-3 border-t border-border flex justify-end">
+              <Button 
+                variant="ink" 
+                size="sm" 
+                onClick={handleMarkDelivered}
+                disabled={isMarking}
+                className="gap-2"
+              >
+                {isMarking ? <Loader2 size={14} className="animate-spin" /> : <PackageCheck size={14} />}
+                Mark as Delivered
+              </Button>
+            </div>
+          )}
         </div>
       </CollapsibleContent>
     </Collapsible>

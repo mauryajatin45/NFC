@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
+import { useOrders } from "@/hooks/useOrders";
 import { AppLayout } from "@/components/AppLayout";
 import { Button } from "@/components/ui/button";
 import { InkHeading, InkSubheading } from "@/components/InkScreen";
@@ -7,25 +8,54 @@ import { cn } from "@/lib/utils";
 import { Camera, Check, Wifi, Loader2, AlertTriangle, X, Play, Upload, ChevronLeft } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 
+// Add type definition for iOS Bridge
+declare global {
+  interface Window {
+    webkit?: {
+      messageHandlers?: {
+        nfcBridge?: {
+          postMessage: (message: string) => void;
+        };
+        nfcWriteBridge?: {
+          postMessage: (message: string) => void;
+        };
+      };
+    };
+    handleIOSScan?: (nfcUid: string) => void;
+    handleIOSWriteResult?: (success: boolean, error?: string) => void;
+  }
+}
+
 type EnrollmentStep = "scan" | "photos" | "uploading" | "writeTag" | "complete";
-type ScanState = "listening" | "detected" | "done";
+type ScanState = "listening" | "detected" | "done" | "error";
 type WriteTagState = "waiting" | "writing" | "done" | "error";
 type MediaType = "photo" | "video";
 type MediaState = {
   url: string;
   file: File;
-  status: "pending" | "uploading" | "done";
+  status: "pending" | "uploading" | "done" | "error";
   type: MediaType;
   duration?: number; // for videos, in seconds
+  media_id?: string; // Captured from backend
 };
 
 export default function EnrollNfc() {
   const location = useLocation();
   const navigate = useNavigate();
   const orderId = location.state?.orderId || "ORD-UNKNOWN";
+  const abortControllerRef = useRef<AbortController | null>(null);
+
+  // Check if running in iOS Wrapper
+  const isIOSWrapper = typeof window !== 'undefined' && 
+                       window.webkit?.messageHandlers?.nfcBridge !== undefined;
+
+  // Fetch full orders context so we can get customer_email, line_items, shipping_address
+  const { data: orders } = useOrders();
+  const orderDetails = orders?.find(o => o.id === orderId);
 
   const [currentStep, setCurrentStep] = useState<EnrollmentStep>("scan");
   const [scanState, setScanState] = useState<ScanState>("listening");
+  const [scanError, setScanError] = useState<string | null>(null);
   const [writeTagState, setWriteTagState] = useState<WriteTagState>("waiting");
   const [media, setMedia] = useState<MediaState[]>([]);
   const [skippedWrite, setSkippedWrite] = useState(false);
@@ -36,40 +66,181 @@ export default function EnrollNfc() {
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const galleryInputRef = useRef<HTMLInputElement>(null);
 
-  // Auto-listen simulation for initial scan
+  // REAL NFC Scan logic
   useEffect(() => {
+    // Setup iOS listeners
+    if (isIOSWrapper) {
+      window.handleIOSScan = (nfcUid: string) => {
+        handleTagRead(nfcUid);
+      };
+    }
+    
     if (currentStep === "scan" && scanState === "listening") {
-      const timer = setTimeout(() => {
-        setScanState("detected");
-        setTimeout(() => {
-          setScanState("done");
-          setTimeout(() => setCurrentStep("photos"), 600);
-        }, 800);
-      }, 2500 + Math.random() * 1500);
-
-      return () => clearTimeout(timer);
-    }
-  }, [currentStep, scanState]);
-
-  // Auto-listen simulation for write tag step
-  useEffect(() => {
-    if (currentStep === "writeTag" && writeTagState === "waiting") {
-      const timer = setTimeout(() => {
-        setWriteTagState("writing");
-        setTimeout(() => {
-          // Simulate 90% success rate
-          if (Math.random() > 0.1) {
-            setWriteTagState("done");
-            setTimeout(() => setCurrentStep("complete"), 600);
-          } else {
-            setWriteTagState("error");
+      const startScan = async () => {
+        // 1. iOS Native Bridge Path
+        if (isIOSWrapper) {
+          try {
+            window.webkit?.messageHandlers?.nfcBridge?.postMessage("startScan");
+          } catch (err) {
+            console.error("Failed to call iOS bridge", err);
+            setScanState("detected"); // Fallback for testing or simulate error
           }
-        }, 1200);
-      }, 2000 + Math.random() * 1500);
+          return;
+        }
 
+        // 2. Android Web NFC Path
+        if (!("NDEFReader" in window)) {
+          setScanState("error");
+          setScanError("NFC is not supported on this browser. You must use Android Chrome or the INK iOS App to scan tags.");
+          return;
+        }
+
+        try {
+          const ndef = new (window as any).NDEFReader();
+          abortControllerRef.current = new AbortController();
+          await ndef.scan({ signal: abortControllerRef.current.signal });
+          
+          ndef.onreading = (event: any) => {
+            const serialNumber = event.serialNumber;
+            abortControllerRef.current?.abort();
+            handleTagRead(serialNumber);
+          };
+        } catch (error: any) {
+          if (error.name !== 'AbortError') {
+             console.error("Error starting NFC scan", error);
+             setScanState("error");
+             setScanError(`NFC Error: ${error.message || "Could not start scan. Check device permissions."}`);
+          }
+        }
+      };
+
+      startScan();
+    }
+
+    return () => {
+      if (window.handleIOSScan) delete window.handleIOSScan;
+      abortControllerRef.current?.abort();
+    };
+  }, [currentStep, scanState, isIOSWrapper]);
+
+  const handleTagRead = (nfcUid: string) => {
+    setScanState("detected");
+    localStorage.setItem("enrollment_nfcUid", nfcUid); // save for later if needed
+    setTimeout(() => {
+      setScanState("done");
+      setTimeout(() => setCurrentStep("photos"), 600);
+    }, 800);
+  };
+
+  // REAL API request AND Physical Tag Write Logic
+  useEffect(() => {
+    if (isIOSWrapper) {
+      window.handleIOSWriteResult = (success: boolean, errorMsg?: string) => {
+        if (success) {
+          setWriteTagState("done");
+          setTimeout(() => setCurrentStep("complete"), 600);
+        } else {
+          setWriteTagState("error");
+          console.error("iOS Write failed: ", errorMsg);
+        }
+      };
+    }
+
+    if (currentStep === "writeTag" && writeTagState === "waiting") {
+      const processEnrollment = async () => {
+        try {
+          setWriteTagState("writing");
+          const WAREHOUSE_PROXY_URL = import.meta.env.VITE_SHOPIFY_APP_URL;
+          if (!WAREHOUSE_PROXY_URL) throw new Error("VITE_SHOPIFY_APP_URL is not defined in environment");
+
+          const token = localStorage.getItem('token');
+          if (!token) throw new Error("Not authenticated");
+
+          const scannedUid = localStorage.getItem("enrollment_nfcUid") || "MOCK-UID";
+          const nfcToken = `nfc_${orderId.replace(/\W+/g, '_').toLowerCase()}_${Date.now()}`;
+          const urlToWrite = `https://in.ink/${nfcToken}`;
+
+           // 1. Build and send the enrollment payload to the INK Backend first
+          const enrollPayload = {
+            order_id: orderId,
+            nfc_token: nfcToken,
+            nfc_uid: scannedUid, 
+            order_number: orderDetails?.name || orderId,
+            customer_email: orderDetails?.customer?.email || location.state?.customerEmail || "unknown@example.com",
+            customer_phone: orderDetails?.customer?.phone || location.state?.customerPhone,
+            shipping_address: orderDetails?.shippingAddress || location.state?.shippingAddress || {
+              line1: "Not Provided",
+              city: "Unknown",
+              country: "US"
+            },
+            product_details: orderDetails?.items?.map((item: any) => ({
+              sku: item.sku || "SKU-UNKNOWN",
+              name: item.name || item.title || "Product",
+              quantity: item.quantity || 1,
+              price: item.value || item.price || 0
+            })) || [],
+            warehouse_location: {
+              lat: 40.7128, // In a real app, use the HTML5 Geolocation API here
+              lng: -74.0060
+            },
+            photo_urls: media.filter(m => m.url && !m.url.startsWith('blob:')).map(m => m.url),
+            photo_hashes: media.filter(m => m.media_id).map(m => m.media_id)
+          };
+
+          const enrollResponse = await fetch(`${WAREHOUSE_PROXY_URL}/app/api/warehouse/enroll`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "Authorization": `Bearer ${token}`
+            },
+            body: JSON.stringify(enrollPayload)
+          });
+
+          if (!enrollResponse.ok) {
+            const errData = await enrollResponse.json().catch(() => null);
+            throw new Error(errData?.error || "Failed to commit enrollment");
+          }
+
+          // 2. NOW Actually write the URL to the physical NFC tag
+          
+          if (isIOSWrapper) {
+             window.webkit?.messageHandlers?.nfcWriteBridge?.postMessage(urlToWrite);
+             return; // wait for handleIOSEnrollWriteResult
+          }
+
+          if (!("NDEFReader" in window)) {
+            setWriteTagState("error");
+            // Set error but we can't easily display a custom message without adding writeTagError state.
+            // The existing UI for write error is generic enough.
+            console.error("NFC writing not supported on this browser.");
+            return;
+          }
+
+          // Real Android Web NFC write
+          const ndef = new (window as any).NDEFReader();
+          await ndef.write({
+            records: [{ recordType: "url", data: urlToWrite }]
+          });
+
+          // Write successful!
+          setWriteTagState("done");
+          setTimeout(() => setCurrentStep("complete"), 600);
+          
+        } catch (error) {
+          console.error("Enrollment/Write failed:", error);
+          setWriteTagState("error");
+        }
+      };
+
+      // Slight start delay to ensure UI renders
+      const timer = setTimeout(processEnrollment, 500);
       return () => clearTimeout(timer);
     }
-  }, [currentStep, writeTagState]);
+    
+    return () => {
+       if (window.handleIOSWriteResult) delete window.handleIOSWriteResult;
+    };
+  }, [currentStep, writeTagState, media, orderId, location.state, orderDetails, isIOSWrapper]);
 
   // Get video duration helper
   const getVideoDuration = (file: File): Promise<number> => {
@@ -166,21 +337,52 @@ export default function EnrollNfc() {
           return updated;
         });
 
-        // Simulate upload delay (videos take longer)
-        const delay = media[i].type === "video" ? 1500 + Math.random() * 500 : 800 + Math.random() * 400;
-        await new Promise(resolve => setTimeout(resolve, delay));
+        try {
+          const WAREHOUSE_PROXY_URL = import.meta.env.VITE_SHOPIFY_APP_URL;
+          if (!WAREHOUSE_PROXY_URL) throw new Error("Missing VITE_SHOPIFY_APP_URL");
+          const token = localStorage.getItem('token');
+          if (!token) throw new Error("Not authenticated");
 
-        // Mark as done
-        setMedia(prev => {
-          const updated = [...prev];
-          updated[i] = { ...updated[i], status: "done" };
-          return updated;
-        });
+          const formData = new FormData();
+          formData.append("file", media[i].file);
+          if (orderId) formData.append("orderId", orderId);
+
+          const uploadRes = await fetch(`${WAREHOUSE_PROXY_URL}/app/api/warehouse/upload`, {
+            method: "POST",
+            headers: {
+              "Authorization": `Bearer ${token}`
+              // No Content-Type header; fetch sets multipart/form-data with boundary automatically
+            },
+            body: formData
+          });
+
+          if (!uploadRes.ok) {
+            throw new Error(`Upload failed for file ${i + 1}`);
+          }
+          const { media_id, url } = await uploadRes.json();
+
+          // Mark as done
+          setMedia(prev => {
+            const updated = [...prev];
+            updated[i] = { ...updated[i], status: "done", media_id, url: url || updated[i].url };
+            return updated;
+          });
+        } catch (error) {
+          console.error("Upload error:", error);
+          // Mark as error
+          setMedia(prev => {
+            const updated = [...prev];
+            updated[i] = { ...updated[i], status: "error" };
+            return updated;
+          });
+          // Abort further uploads? Let's just continue for now or throw
+          throw error;
+        }
       }
     }
 
     // Complete enrollment
-    setUploadProgress({ current: totalToUpload, total: totalToUpload, status: "Completing enrollment..." });
+    setUploadProgress({ current: totalToUpload, total: totalToUpload, status: "All media uploaded!" });
     await new Promise(resolve => setTimeout(resolve, 500));
 
     // Advance to write step
@@ -286,7 +488,7 @@ export default function EnrollNfc() {
             >
               <ChevronLeft size={20} />
             </button>
-            <h1 className="font-heading text-lg font-semibold">{orderId}</h1>
+            <h1 className="font-heading text-lg font-semibold">{orderDetails?.name || orderId}</h1>
           </div>
         )}
 
@@ -348,6 +550,8 @@ export default function EnrollNfc() {
                   >
                     {scanState === "done" ? (
                       <Check size={24} className="text-success" strokeWidth={2} />
+                    ) : scanState === "error" ? (
+                      <AlertTriangle size={24} className="text-destructive" strokeWidth={2} />
                     ) : (
                       <Wifi
                         size={24}
@@ -363,6 +567,11 @@ export default function EnrollNfc() {
                     {scanState === "listening" && "Hold sticker near device"}
                     {scanState === "detected" && "Processing..."}
                   </p>
+                  {scanState === "error" && (
+                     <p className="mt-4 font-sans text-xs text-destructive max-w-[250px] mx-auto">
+                       {scanError}
+                     </p>
+                  )}
                 </div>
               </div>
             </div>

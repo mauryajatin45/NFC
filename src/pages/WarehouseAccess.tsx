@@ -5,8 +5,7 @@ import { Input } from "@/components/ui/input";
 import { InkScreen, InkHeader, InkContent, InkHeading, InkSubheading, InkLabel } from "@/components/InkScreen";
 import { Eye, EyeOff, Loader2 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
-
-const API_BASE = import.meta.env.VITE_API_BASE_URL || "https://shopify-app-250065525755.us-central1.run.app";
+import { authLogin } from "@/services/api";
 
 export default function WarehouseAccess() {
   const navigate = useNavigate();
@@ -34,26 +33,19 @@ export default function WarehouseAccess() {
     setIsSubmitting(true);
     
     try {
-      const response = await fetch(`${API_BASE}/app/api/auth/login`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: email.trim().toLowerCase(), password }),
+      const { data, error: apiError } = await authLogin({ 
+        email: email.trim().toLowerCase(), 
+        password 
       });
 
-      const data = await response.json();
-
-      if (!response.ok) {
-        setError(data.error || "Invalid email or password");
+      if (apiError || !data) {
+        setError(apiError?.message || "Invalid email or password");
         setIsSubmitting(false);
         return;
       }
 
-      // Store auth data via Context
-      login(data.token, {
-          userId: data.userId,
-          name: data.name,
-          email: data.email
-      });
+      // Store auth data via Context using the new v1.3.0 MerchantUser schema
+      login(data.token, data.user);
 
       navigate("/dashboard"); // Redirecting to dashboard immediately after login
     } catch (err) {

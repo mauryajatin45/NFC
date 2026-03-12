@@ -6,7 +6,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Progress } from "@/components/ui/progress";
 import { useAuth } from "@/contexts/AuthContext";
 import { useInventory } from "@/hooks/useInventory";
 import {
@@ -97,7 +96,7 @@ export default function Settings() {
     const note: Note = {
       id: Date.now().toString(),
       content: newNote,
-      author: session?.merchant?.name || "You",
+      author: session?.name || "You",
       createdAt: new Date().toLocaleString("en-US", {
         month: "short",
         day: "numeric",
@@ -112,9 +111,7 @@ export default function Settings() {
     setNewNote("");
   };
 
-  const utilizationPercent = inventory 
-    ? Math.round((inventory.enrolled / inventory.total) * 100) 
-    : 0;
+  // Removed utilizationPercent since 'total' is no longer tracked
 
   return (
     <AppLayout>
@@ -172,15 +169,15 @@ export default function Settings() {
               <div className="space-y-4">
                 <div>
                   <label className="text-xs text-muted-foreground uppercase tracking-wider">Name</label>
-                  <p className="font-medium mt-1">{session?.merchant?.name || "—"}</p>
+                  <p className="font-medium mt-1">{session?.name || "—"}</p>
                 </div>
                 <div>
                   <label className="text-xs text-muted-foreground uppercase tracking-wider">Email</label>
-                  <p className="font-medium mt-1">{session?.merchant?.email || "—"}</p>
+                  <p className="font-medium mt-1">{session?.email || "—"}</p>
                 </div>
                 <div>
                   <label className="text-xs text-muted-foreground uppercase tracking-wider">Merchant ID</label>
-                  <p className="font-mono text-sm mt-1">{session?.merchant?.id || "—"}</p>
+                  <p className="font-mono text-sm mt-1">{session?.merchant_id || "—"}</p>
                 </div>
               </div>
             </div>
@@ -193,20 +190,14 @@ export default function Settings() {
                 <Nfc size={20} className="text-muted-foreground" />
                 <span className="text-xs text-muted-foreground uppercase tracking-wider">Current Inventory</span>
               </div>
-              <p className="font-heading text-4xl font-normal">{inventory?.available.toLocaleString() || "—"}</p>
-              <p className="text-sm text-muted-foreground mt-1">stickers remaining</p>
+              <p className="font-heading text-4xl font-normal">{inventory?.current_count?.toLocaleString() || "—"}</p>
+              <p className="text-sm text-muted-foreground mt-1">stickers available for verification</p>
             </div>
 
             <div className="bg-card border border-border rounded-2xl p-5">
-              <span className="text-xs text-muted-foreground uppercase tracking-wider">Used This Period</span>
-              <p className="font-heading text-4xl font-normal mt-2">{inventory?.enrolled.toLocaleString() || "—"}</p>
-              <p className="text-sm text-muted-foreground mt-1">of {inventory?.total.toLocaleString() || 0} allocated</p>
-            </div>
-
-            <div className="bg-card border border-border rounded-2xl p-5">
-              <span className="text-xs text-muted-foreground uppercase tracking-wider">Utilization</span>
-              <p className="font-heading text-4xl font-normal mt-2">{utilizationPercent}%</p>
-              <Progress value={utilizationPercent} className="h-2 mt-3" />
+              <span className="text-xs text-muted-foreground uppercase tracking-wider">Recent Activity</span>
+              <p className="font-heading text-4xl font-normal mt-2">{inventory?.recent_transactions?.length || 0}</p>
+              <p className="text-sm text-muted-foreground mt-1">recent transactions recorded</p>
             </div>
           </TabsContent>
 
@@ -217,7 +208,7 @@ export default function Settings() {
                 <Key size={20} className="text-muted-foreground" />
                 <div>
                   <p className="font-medium">API Keys</p>
-                  <p className="text-xs text-muted-foreground">Manage API credentials for {session?.merchant?.name || "your warehouse"}</p>
+                  <p className="text-xs text-muted-foreground">Manage API credentials for {session?.name || "your warehouse"}</p>
                 </div>
               </div>
 

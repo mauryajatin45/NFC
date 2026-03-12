@@ -1,15 +1,32 @@
-// API Types for Platform Backend
+// API Types for INK Backend v1.3.0
 
-export interface MerchantSession {
-  accessToken: string;
-  refreshToken?: string;
-  expiresAt: number;
-  merchant: {
-    id: string;
-    name: string;
-    email: string;
-    avatarUrl?: string;
-  };
+export interface MerchantUser {
+  user_id: string;
+  merchant_id: string;
+  name: string;
+  email: string;
+  role?: string;
+  created_at?: string;
+}
+
+export interface AuthSession {
+  token: string;
+  user: MerchantUser;
+}
+
+export interface AuthValidateResponse {
+  valid: boolean;
+  shop_id?: string;
+  user_id?: string;
+  email?: string;
+  role?: string;
+}
+
+export interface AdminUserCreatePayload {
+  merchant_id: string;
+  name: string;
+  email: string;
+  password?: string; // Add if creating, optional on return
 }
 
 export interface LoginCredentials {
@@ -18,16 +35,21 @@ export interface LoginCredentials {
 }
 
 export interface ShippingAddress {
-  street: string;
+  line1?: string;      // same as address1
+  line2?: string;      // same as address2
+  street?: string;     // deprecated legacy field
   city: string;
   state: string;
   zip: string;
   country: string;
+  phone?: string;
 }
 
 export interface Order {
   id: string;
-  status: "pending" | "ready" | "enrolled" | "verified" | "shipped";
+  name?: string;                        // human readable e.g. "#1008"
+  status: "pending" | "ready" | "enrolled" | "verified" | "shipped" | "delivered";
+  verificationStatus?: string;          // raw ink metafield value
   customer: {
     name: string;
     email?: string;
@@ -38,12 +60,19 @@ export interface Order {
   createdAt: string;
   updatedAt: string;
   source?: "manual" | "shopify";
+  // Shopify display fields
+  totalPrice?: string;
+  currency?: string;
+  currencySymbol?: string;
+  shippingStatus?: string;
+  shippingColor?: string;
 }
 
 export interface OrderItem {
   id: string;
   sku: string;
   name: string;
+  quantity?: number;
   description?: string;
   value: number;
   currency: string;
@@ -59,7 +88,23 @@ export interface Sticker {
   enrolledAt?: string;
 }
 
+export interface StickerInventoryLedger {
+  id: string;
+  shop_id: string;
+  timestamp: string;
+  delta: number;
+  reason: string;
+  balance_after: number;
+  metadata?: Record<string, any>;
+}
+
 export interface StickerInventory {
+  current_count: number;
+  recent_transactions: StickerInventoryLedger[];
+}
+
+// Keeping local legacy interface backward compatible if needed
+export interface LegacyStickerInventory {
   available: number;
   enrolled: number;
   total: number;
