@@ -1,12 +1,12 @@
-import { useState } from "react";
-import { User, Shield, Plus, Loader2 } from "lucide-react";
+import { useState, useEffect, useCallback } from "react";
+import { User, Shield, Plus, Loader2, AlertCircle } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
-import { adminCreateUser } from "@/services/api";
+import { adminCreateUser, fetchUsers } from "@/services/api";
 import {
   Dialog,
   DialogContent,
@@ -24,13 +24,34 @@ export function UsersTab() {
   
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isError, setIsError] = useState(false);
   const [formData, setFormData] = useState({ name: "", email: "", password: "" });
+  const [users, setUsers] = useState<any[]>([]);
 
-  // Currently mocked user list for display. In the future this should be a GET /admin/users call.
-  const [users, setUsers] = useState([
-    { id: "1", name: currentUser?.name || "You", email: currentUser?.email || "you@example.com", role: "Admin", status: "Active" },
-    { id: "2", name: "Alice Smith", email: "alice@example.com", role: "Manager", status: "Active" }
-  ]);
+  const loadUsers = useCallback(async () => {
+    setIsLoading(true);
+    setIsError(false);
+    const { data, error } = await fetchUsers();
+    setIsLoading(false);
+    
+    if (error) {
+       console.error("Failed to load users:", error);
+       setIsError(true);
+       return;
+    }
+    
+    if (data) {
+      setUsers(data.map(u => ({
+        ...u,
+        status: 'Active'
+      })));
+    }
+  }, []);
+
+  useEffect(() => {
+    loadUsers();
+  }, [loadUsers]);
 
   const handleCreateUser = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -68,16 +89,11 @@ export function UsersTab() {
     // Success! Update local list and close dialog
     toast({
       title: "User Created",
-      description: `${data.name} has been added to the team.`
+      description: `${formData.name} has been added to the team.`
     });
 
-    setUsers(prev => [...prev, {
-      id: data.user_id,
-      name: data.name,
-      email: data.email,
-      role: data.role || "Merchant",
-      status: "Active"
-    }]);
+    // Refresh the list from server to ensure data consistency
+    loadUsers();
     
     setFormData({ name: "", email: "", password: "" });
     setIsDialogOpen(false);
@@ -149,37 +165,57 @@ export function UsersTab() {
         </Dialog>
       </div>
 
-      <div className="border border-border rounded-xl flex flex-col overflow-hidden">
-        <Table>
-          <TableHeader>
-            <TableRow className="bg-secondary/50">
-              <TableHead className="text-xs uppercase tracking-wider text-muted-foreground">User</TableHead>
-              <TableHead className="text-xs uppercase tracking-wider text-muted-foreground text-center">Role</TableHead>
-              <TableHead className="text-xs uppercase tracking-wider text-muted-foreground text-right">Status</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {users.map((user) => (
-              <TableRow key={user.id} className="hover:bg-secondary/30">
-                <TableCell>
-                  <div className="font-medium">{user.name}</div>
-                  <div className="text-xs text-muted-foreground">{user.email}</div>
-                </TableCell>
-                <TableCell className="text-center">
-                  <Badge variant="outline" className="opacity-80">
-                    {user.role === 'Admin' && <Shield size={12} className="mr-1" />}
-                    {user.role}
-                  </Badge>
-                </TableCell>
-                <TableCell className="text-right">
-                  <Badge variant={user.status === 'Active' ? 'default' : 'secondary'}>
-                    {user.status}
-                  </Badge>
-                </TableCell>
+      <div className="border border-border rounded-xl flex flex-col overflow-hidden min-h-[120px]">
+        {isLoading ? (
+          <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
+            <Loader2 size={24} className="animate-spin mb-2" />
+            <p className="text-xs">Loading team members...</p>
+          </div>
+        ) : isError ? (
+          <div className="flex flex-col items-center justify-center py-12 text-destructive">
+            <AlertCircle size={24} className="mb-2" />
+            <p className="text-xs font-medium">Failed to load users</p>
+            <Button variant="ghost" size="sm" onClick={loadUsers} className="mt-2 text-xs h-7">
+              Try again
+            </Button>
+          </div>
+        ) : users.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
+            <User size={24} className="mb-2 opacity-20" />
+            <p className="text-xs">No team members found.</p>
+          </div>
+        ) : (
+          <Table>
+            <TableHeader>
+              <TableRow className="bg-secondary/50">
+                <TableHead className="text-xs uppercase tracking-wider text-muted-foreground">User</TableHead>
+                <TableHead className="text-xs uppercase tracking-wider text-muted-foreground text-center">Role</TableHead>
+                <TableHead className="text-xs uppercase tracking-wider text-muted-foreground text-right">Status</TableHead>
               </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+            </TableHeader>
+            <TableBody>
+              {users.map((user) => (
+                <TableRow key={user.id} className="hover:bg-secondary/30">
+                  <TableCell>
+                    <div className="font-medium text-sm">{user.name}</div>
+                    <div className="text-[11px] text-muted-foreground">{user.email}</div>
+                  </TableCell>
+                  <TableCell className="text-center">
+                    <Badge variant="outline" className="opacity-80 text-[10px] h-5 px-1.5 capitalize">
+                      {(user.role === 'admin' || user.role === 'Admin') && <Shield size={10} className="mr-1" />}
+                      {user.role || 'operator'}
+                    </Badge>
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <Badge variant={user.status === 'Active' ? 'default' : 'secondary'} className="text-[10px] h-5 px-1.5">
+                      {user.status}
+                    </Badge>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        )}
       </div>
     </div>
   );

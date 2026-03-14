@@ -198,3 +198,31 @@ export async function fetchOrder(id: string): Promise<{ data?: Order, error?: { 
   
   return { data: order };
 }
+
+export async function fetchUsers(): Promise<{ data?: MerchantUser[], error?: { message: string } }> {
+  try {
+    const APP_URL = import.meta.env.VITE_SHOPIFY_APP_URL;
+    if (!APP_URL) throw new Error("VITE_SHOPIFY_APP_URL is not configured.");
+
+    const token = localStorage.getItem('token');
+    if (!token) throw new Error("Not authenticated");
+
+    const response = await fetch(`${APP_URL}/app/api/users`, {
+      method: "GET",
+      headers: {
+        "Authorization": `Bearer ${token}`,
+        "Content-Type": "application/json"
+      }
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => null);
+      throw new Error(errorData?.error || "Failed to fetch users");
+    }
+
+    const { users } = await response.json();
+    return { data: users };
+  } catch (error: any) {
+    return { error: { message: error.message || "Failed to load users" } };
+  }
+}

@@ -124,7 +124,7 @@ export function ShipmentCard({ shipment, isExpanded, onToggle, onRefetch }: Ship
             {/* Shipment ID + Status badge */}
             <div className="flex items-center gap-2 mb-1">
               <span className="font-heading text-[15px] font-semibold text-foreground">
-                {shipment.id}
+                {shipment.orderId}
               </span>
               <span className={cn(
                 "inline-flex items-center gap-1 px-2 py-0.5 text-[11px] font-medium rounded-lg",
