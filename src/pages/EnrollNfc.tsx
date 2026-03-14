@@ -8,7 +8,40 @@ import { cn } from "@/lib/utils";
 import { Camera, Check, Wifi, Loader2, AlertTriangle, X, Play, Upload, ChevronLeft } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 
-// Add type definition for iOS Bridge
+/**
+ * Compresses an image File to at most MAX_DIMENSION px on its longest side,
+ * at JPEG_QUALITY quality. Reduces 2-5MB phone photos to ~200-400KB.
+ * Videos are returned unchanged.
+ */
+const MAX_DIMENSION = 1280;
+const JPEG_QUALITY = 0.82;
+
+async function compressImage(file: File): Promise<File> {
+  if (!file.type.startsWith("image/")) return file; // skip videos
+  return new Promise((resolve) => {
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      const { width, height } = img;
+      const scale = Math.min(1, MAX_DIMENSION / Math.max(width, height));
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.round(width * scale);
+      canvas.height = Math.round(height * scale);
+      const ctx = canvas.getContext("2d")!;
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      canvas.toBlob((blob) => {
+        if (!blob) { resolve(file); return; }
+        const compressed = new File([blob], file.name.replace(/\.\w+$/, ".jpg"), { type: "image/jpeg" });
+        console.log(`[compress] ${file.name}: ${(file.size/1024).toFixed(0)}KB → ${(compressed.size/1024).toFixed(0)}KB`);
+        resolve(compressed);
+      }, "image/jpeg", JPEG_QUALITY);
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); resolve(file); };
+    img.src = url;
+  });
+}
+
 declare global {
   interface Window {
     webkit?: {
@@ -59,6 +92,9 @@ export default function EnrollNfc() {
   const [writeTagState, setWriteTagState] = useState<WriteTagState>("waiting");
   const [media, setMedia] = useState<MediaState[]>([]);
   const [skippedWrite, setSkippedWrite] = useState(false);
+
+  // Stores proof_id + nfc_token after successful enrollment
+  const [enrollmentResult, setEnrollmentResult] = useState<{ proof_id: string; nfc_token: string; url_to_write: string } | null>(null);
 
   // Upload progress state
   const [uploadProgress, setUploadProgress] = useState({ current: 0, total: 0, status: "" });
@@ -147,100 +183,44 @@ export default function EnrollNfc() {
     }
 
     if (currentStep === "writeTag" && writeTagState === "waiting") {
-      const processEnrollment = async () => {
+      const doNfcWrite = async () => {
         try {
           setWriteTagState("writing");
-          const WAREHOUSE_PROXY_URL = import.meta.env.VITE_SHOPIFY_APP_URL;
-          if (!WAREHOUSE_PROXY_URL) throw new Error("VITE_SHOPIFY_APP_URL is not defined in environment");
 
-          const token = localStorage.getItem('token');
-          if (!token) throw new Error("Not authenticated");
+          const urlToWrite = enrollmentResult?.url_to_write;
+          if (!urlToWrite) throw new Error("No enrollment URL to write");
 
-          const scannedUid = localStorage.getItem("enrollment_nfcUid") || "MOCK-UID";
-          const nfcToken = `nfc_${orderId.replace(/\W+/g, '_').toLowerCase()}_${Date.now()}`;
-          const urlToWrite = `https://in.ink/${nfcToken}`;
-
-           // 1. Build and send the enrollment payload to the INK Backend first
-          const enrollPayload = {
-            order_id: orderId,
-            nfc_token: nfcToken,
-            nfc_uid: scannedUid, 
-            order_number: orderDetails?.name || orderId,
-            customer_email: orderDetails?.customer?.email || location.state?.customerEmail || "unknown@example.com",
-            customer_phone: orderDetails?.customer?.phone || location.state?.customerPhone,
-            shipping_address: orderDetails?.shippingAddress || location.state?.shippingAddress || {
-              line1: "Not Provided",
-              city: "Unknown",
-              country: "US"
-            },
-            product_details: orderDetails?.items?.map((item: any) => ({
-              sku: item.sku || "SKU-UNKNOWN",
-              name: item.name || item.title || "Product",
-              quantity: item.quantity || 1,
-              price: item.value || item.price || 0
-            })) || [],
-            warehouse_location: {
-              lat: 40.7128, // In a real app, use the HTML5 Geolocation API here
-              lng: -74.0060
-            },
-            photo_urls: media.filter(m => m.url && !m.url.startsWith('blob:')).map(m => m.url),
-            photo_hashes: media.filter(m => m.media_id).map(m => m.media_id)
-          };
-
-          const enrollResponse = await fetch(`${WAREHOUSE_PROXY_URL}/app/api/warehouse/enroll`, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              "Authorization": `Bearer ${token}`
-            },
-            body: JSON.stringify(enrollPayload)
-          });
-
-          if (!enrollResponse.ok) {
-            const errData = await enrollResponse.json().catch(() => null);
-            throw new Error(errData?.error || "Failed to commit enrollment");
-          }
-
-          // 2. NOW Actually write the URL to the physical NFC tag
-          
+          // iOS native write
           if (isIOSWrapper) {
-             window.webkit?.messageHandlers?.nfcWriteBridge?.postMessage(urlToWrite);
-             return; // wait for handleIOSEnrollWriteResult
-          }
-
-          if (!("NDEFReader" in window)) {
-            setWriteTagState("error");
-            // Set error but we can't easily display a custom message without adding writeTagError state.
-            // The existing UI for write error is generic enough.
-            console.error("NFC writing not supported on this browser.");
+            window.webkit?.messageHandlers?.nfcWriteBridge?.postMessage(urlToWrite);
             return;
           }
 
-          // Real Android Web NFC write
-          const ndef = new (window as any).NDEFReader();
-          await ndef.write({
-            records: [{ recordType: "url", data: urlToWrite }]
-          });
+          if (!("NDEFReader" in window)) {
+            console.error("NFC writing not supported on this browser.");
+            setWriteTagState("error");
+            return;
+          }
 
-          // Write successful!
+          const ndef = new (window as any).NDEFReader();
+          await ndef.write({ records: [{ recordType: "url", data: urlToWrite }] });
+
           setWriteTagState("done");
           setTimeout(() => setCurrentStep("complete"), 600);
-          
         } catch (error) {
-          console.error("Enrollment/Write failed:", error);
+          console.error("NFC write failed:", error);
           setWriteTagState("error");
         }
       };
 
-      // Slight start delay to ensure UI renders
-      const timer = setTimeout(processEnrollment, 500);
+      const timer = setTimeout(doNfcWrite, 500);
       return () => clearTimeout(timer);
     }
-    
+
     return () => {
-       if (window.handleIOSWriteResult) delete window.handleIOSWriteResult;
+      if (window.handleIOSWriteResult) delete window.handleIOSWriteResult;
     };
-  }, [currentStep, writeTagState, media, orderId, location.state, orderDetails, isIOSWrapper]);
+  }, [currentStep, writeTagState, enrollmentResult, isIOSWrapper]);
 
   // Get video duration helper
   const getVideoDuration = (file: File): Promise<number> => {
@@ -302,92 +282,157 @@ export default function EnrollNfc() {
     });
   };
 
-  // Continue to Write - start upload process
+  // Continue to Write - start ENROLL then UPLOAD then advance to NFC write
   const handleContinueToWrite = async () => {
     const pendingMedia = media.filter(m => m.status === "pending");
-    const totalToUpload = pendingMedia.length;
-
-    if (totalToUpload === 0) {
-      // All media already uploaded, go directly to write
-      setWriteTagState("waiting");
-      setCurrentStep("writeTag");
-      return;
-    }
 
     // Show uploading screen
     setCurrentStep("uploading");
-    setUploadProgress({ current: 0, total: totalToUpload, status: "Starting upload..." });
+    setUploadProgress({ current: 0, total: pendingMedia.length, status: "Enrolling order..." });
 
-    // Upload media sequentially
-    let uploadedCount = 0;
-    for (let i = 0; i < media.length; i++) {
-      if (media[i].status === "pending") {
-        uploadedCount++;
-        const itemType = media[i].type === "video" ? "video" : "photo";
-        setUploadProgress({
-          current: uploadedCount,
-          total: totalToUpload,
-          status: `Uploading ${itemType} ${uploadedCount} of ${totalToUpload}...`
-        });
+    try {
+      const WAREHOUSE_PROXY_URL = import.meta.env.VITE_SHOPIFY_APP_URL;
+      console.group("📦 [EnrollNfc] handleContinueToWrite START");
+      console.log("Proxy URL:", WAREHOUSE_PROXY_URL);
+      console.log("Order ID:", orderId);
+      console.log("Pending media count:", pendingMedia.length);
+      console.log("Media items:", pendingMedia.map(m => ({ name: m.file.name, size: `${(m.file.size/1024).toFixed(1)}KB`, type: m.type })));
+      if (!WAREHOUSE_PROXY_URL) throw new Error("Missing VITE_SHOPIFY_APP_URL");
+      const token = localStorage.getItem('token');
+      console.log("Auth token present:", !!token, "| prefix:", token?.slice(0, 20) + "...");
+      if (!token) throw new Error("Not authenticated");
 
-        // Mark as uploading
-        setMedia(prev => {
-          const updated = [...prev];
-          updated[i] = { ...updated[i], status: "uploading" };
-          return updated;
-        });
+      // ── Step 1: Enroll the order first to get proof_id ──
+      const scannedUid = localStorage.getItem("enrollment_nfcUid") || "MOCK-UID";
+      const nfcToken = `nfc_${orderId.replace(/\W+/g, '_').toLowerCase()}_${Date.now()}`;
+      const urlToWrite = `https://in.ink/${nfcToken}`;
 
-        try {
-          const WAREHOUSE_PROXY_URL = import.meta.env.VITE_SHOPIFY_APP_URL;
-          if (!WAREHOUSE_PROXY_URL) throw new Error("Missing VITE_SHOPIFY_APP_URL");
-          const token = localStorage.getItem('token');
-          if (!token) throw new Error("Not authenticated");
+      const enrollPayload = {
+        order_id: orderId,
+        nfc_token: nfcToken,
+        nfc_uid: scannedUid,
+        order_number: orderDetails?.name || orderId,
+        customer_email: orderDetails?.customer?.email || location.state?.customerEmail || "unknown@example.com",
+        customer_phone: orderDetails?.customer?.phone || location.state?.customerPhone,
+        shipping_address: orderDetails?.shippingAddress || location.state?.shippingAddress || {
+          line1: "Not Provided",
+          city: "Unknown",
+          country: "US"
+        },
+        product_details: orderDetails?.items?.map((item: any) => ({
+          sku: item.sku || "SKU-UNKNOWN",
+          name: item.name || item.title || "Product",
+          quantity: item.quantity || 1,
+          price: item.value || item.price || 0
+        })) || [],
+        warehouse_location: { lat: 40.7128, lng: -74.0060 },
+      };
 
-          const formData = new FormData();
-          formData.append("file", media[i].file);
-          if (orderId) formData.append("orderId", orderId);
+      console.log("🔗 [EnrollNfc] Enroll payload:", { order_id: orderId, nfc_token: nfcToken, nfc_uid: scannedUid, order_number: enrollPayload.order_number, product_details_count: enrollPayload.product_details.length });
+      console.log("🚀 [EnrollNfc] POST to:", `${WAREHOUSE_PROXY_URL}/app/api/warehouse/enroll`);
+      const enrollStart = Date.now();
+      const enrollRes = await fetch(`${WAREHOUSE_PROXY_URL}/app/api/warehouse/enroll`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
+        body: JSON.stringify(enrollPayload)
+      });
+      console.log(`⏱️ [EnrollNfc] Enroll response: ${enrollRes.status} in ${Date.now() - enrollStart}ms`);
 
-          const uploadRes = await fetch(`${WAREHOUSE_PROXY_URL}/app/api/warehouse/upload`, {
-            method: "POST",
-            headers: {
-              "Authorization": `Bearer ${token}`
-              // No Content-Type header; fetch sets multipart/form-data with boundary automatically
-            },
-            body: formData
-          });
-
-          if (!uploadRes.ok) {
-            throw new Error(`Upload failed for file ${i + 1}`);
-          }
-          const { media_id, url } = await uploadRes.json();
-
-          // Mark as done
-          setMedia(prev => {
-            const updated = [...prev];
-            updated[i] = { ...updated[i], status: "done", media_id, url: url || updated[i].url };
-            return updated;
-          });
-        } catch (error) {
-          console.error("Upload error:", error);
-          // Mark as error
-          setMedia(prev => {
-            const updated = [...prev];
-            updated[i] = { ...updated[i], status: "error" };
-            return updated;
-          });
-          // Abort further uploads? Let's just continue for now or throw
-          throw error;
-        }
+      if (!enrollRes.ok) {
+        const errData = await enrollRes.json().catch(() => null);
+        console.error("❌ [EnrollNfc] Enroll failed:", errData);
+        throw new Error(errData?.error || "Enrollment failed");
       }
+
+      const enrollData = await enrollRes.json();
+      const proofId = enrollData.proof_id;
+      console.log("✅ [EnrollNfc] Enrolled! proof_id:", proofId, "| full response:", enrollData);
+
+      // Store enrollment result for the NFC write step
+      setEnrollmentResult({ proof_id: proofId, nfc_token: nfcToken, url_to_write: urlToWrite });
+
+      // ── Step 2: Batch-upload all files in ONE request ──
+      // IMPORTANT: Alan's API seals the proof after the FIRST upload call.
+      // All files MUST be sent in a single multipart FormData request, not separate ones.
+      const totalToUpload = pendingMedia.length;
+      setUploadProgress({ current: 0, total: totalToUpload, status: "Compressing photos..." });
+
+      console.log(`📷 [EnrollNfc] Compressing ${pendingMedia.length} files in parallel...`);
+      const compressedFiles = await Promise.all(
+        pendingMedia.map(async (m) => {
+          const isVideo = m.type === "video";
+          const file = isVideo ? m.file : await compressImage(m.file);
+          return { file, isVideo, originalIndex: media.indexOf(m) };
+        })
+      );
+      console.log(`✅ [EnrollNfc] Compression done:`, compressedFiles.map(f => `${(f.file.size/1024).toFixed(0)}KB`));
+
+      // Build ONE FormData with all files
+      const batchFormData = new FormData();
+      batchFormData.append("proof_id", proofId);
+      batchFormData.append("is_first_photo", "true"); // Triggers inventory deduction on backend
+      batchFormData.append("timestamp", new Date().toISOString());
+      compressedFiles.forEach(({ file, isVideo }, idx) => {
+        batchFormData.append("file", file);
+        batchFormData.append(`media_type_${idx}`, isVideo ? "delivery_video" : "package_photo");
+      });
+      // Also set the primary media_type for the first file (Alan's main field)
+      const firstIsVideo = compressedFiles[0]?.isVideo ?? false;
+      batchFormData.append("media_type", firstIsVideo ? "delivery_video" : "package_photo");
+
+      // Mark all as uploading
+      setMedia(prev => {
+        const updated = [...prev];
+        compressedFiles.forEach(({ originalIndex }) => {
+          updated[originalIndex] = { ...updated[originalIndex], status: "uploading" };
+        });
+        return updated;
+      });
+      setUploadProgress({ current: 0, total: totalToUpload, status: `Uploading ${totalToUpload} photo${totalToUpload > 1 ? "s" : ""}...` });
+
+      console.log(`🚀 [EnrollNfc] Sending batch upload (${compressedFiles.length} files) to ${WAREHOUSE_PROXY_URL}/app/api/warehouse/upload`);
+      const uploadStart = Date.now();
+      const uploadRes = await fetch(`${WAREHOUSE_PROXY_URL}/app/api/warehouse/upload`, {
+        method: "POST",
+        headers: { "Authorization": `Bearer ${token}` },
+        body: batchFormData
+      });
+      console.log(`⏱️ [EnrollNfc] Batch upload response: ${uploadRes.status} in ${Date.now() - uploadStart}ms`);
+
+      if (!uploadRes.ok) {
+        const errBody = await uploadRes.json().catch(() => null);
+        const serverMsg = errBody?.error || `Upload failed (${uploadRes.status})`;
+        console.error(`❌ [EnrollNfc] Batch upload failed:`, serverMsg, errBody);
+        throw new Error(serverMsg);
+      }
+
+      const uploadResult = await uploadRes.json();
+      console.log(`✅ [EnrollNfc] Batch upload success:`, uploadResult);
+
+      // Mark all files as done
+      setMedia(prev => {
+        const updated = [...prev];
+        compressedFiles.forEach(({ originalIndex }) => {
+          updated[originalIndex] = { ...updated[originalIndex], status: "done" };
+        });
+        return updated;
+      });
+      setUploadProgress({ current: totalToUpload, total: totalToUpload, status: "All media uploaded!" });
+
+      // Done!
+      console.log("🏁 [EnrollNfc] All uploads complete! Advancing to writeTag step.");
+      console.groupEnd();
+      await new Promise(resolve => setTimeout(resolve, 500));
+
+      setWriteTagState("waiting");
+      setCurrentStep("writeTag");
+    } catch (error: any) {
+      console.error("💥 [EnrollNfc] Flow failed:", error.message);
+      console.groupEnd();
+      // Return to photos step so user can retry
+      setCurrentStep("photos");
+      alert(`Error: ${error.message || "Upload failed. Please try again."}`);
     }
-
-    // Complete enrollment
-    setUploadProgress({ current: totalToUpload, total: totalToUpload, status: "All media uploaded!" });
-    await new Promise(resolve => setTimeout(resolve, 500));
-
-    // Advance to write step
-    setWriteTagState("waiting");
-    setCurrentStep("writeTag");
   };
 
   // Retry write tag
@@ -461,7 +506,7 @@ export default function EnrollNfc() {
       <input
         ref={cameraInputRef}
         type="file"
-        accept="image/*,video/*"
+        accept="image/*"
         capture="environment"
         onChange={handleMediaSelect}
         className="hidden"
