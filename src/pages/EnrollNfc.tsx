@@ -99,6 +99,35 @@ export default function EnrollNfc() {
   // Upload progress state
   const [uploadProgress, setUploadProgress] = useState({ current: 0, total: 0, status: "" });
 
+  // GPS location state — required before NFC scan
+  const [gpsCoords, setGpsCoords] = useState<{ lat: number; lng: number } | null>(null);
+  const [gpsError, setGpsError] = useState<string | null>(null);
+  const [gpsLoading, setGpsLoading] = useState(false);
+
+  const captureGpsLocation = () => {
+    if (!navigator.geolocation) {
+      setGpsError("Geolocation is not supported on this device.");
+      return;
+    }
+    setGpsLoading(true);
+    setGpsError(null);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setGpsCoords({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+        setGpsLoading(false);
+      },
+      (err) => {
+        setGpsLoading(false);
+        if (err.code === err.PERMISSION_DENIED) {
+          setGpsError("Location access denied. Please allow location in your browser settings and try again.");
+        } else {
+          setGpsError(`Location error: ${err.message}`);
+        }
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+    );
+  };
+
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const galleryInputRef = useRef<HTMLInputElement>(null);
 
@@ -325,7 +354,7 @@ export default function EnrollNfc() {
           quantity: item.quantity || 1,
           price: item.value || item.price || 0
         })) || [],
-        warehouse_location: { lat: 40.7128, lng: -74.0060 },
+        warehouse_location: gpsCoords || { lat: 40.7128, lng: -74.0060 },
       };
 
       console.log("🔗 [EnrollNfc] Enroll payload:", { order_id: orderId, nfc_token: nfcToken, nfc_uid: scannedUid, order_number: enrollPayload.order_number, product_details_count: enrollPayload.product_details.length });
@@ -580,42 +609,78 @@ export default function EnrollNfc() {
               <div className="text-center">
                 <InkHeading>Scan Sticker</InkHeading>
                 <InkSubheading>
-                  {scanState === "listening" && "Waiting for NFC sticker..."}
-                  {scanState === "detected" && "Sticker detected."}
-                  {scanState === "done" && "Bound."}
+                  {!gpsCoords && "First, enable your location"}
+                  {gpsCoords && scanState === "listening" && "Waiting for NFC sticker..."}
+                  {gpsCoords && scanState === "detected" && "Sticker detected."}
+                  {gpsCoords && scanState === "done" && "Bound."}
                 </InkSubheading>
                 <div className="mt-10">
-                  <div
-                    className={cn(
-                      "aspect-square max-w-[100px] mx-auto border flex items-center justify-center transition-all duration-500",
-                      scanState === "listening" && "border-border bg-secondary/20",
-                      scanState === "detected" && "border-muted-foreground/40 bg-secondary/40 animate-pulse",
-                      scanState === "done" && "border-success/50 bg-success/10"
-                    )}
-                  >
-                    {scanState === "done" ? (
-                      <Check size={24} className="text-success" strokeWidth={2} />
-                    ) : scanState === "error" ? (
-                      <AlertTriangle size={24} className="text-destructive" strokeWidth={2} />
-                    ) : (
-                      <Wifi
-                        size={24}
+
+                  {/* GPS Capture Gate */}
+                  {!gpsCoords ? (
+                    <div className="flex flex-col items-center gap-4">
+                      <div className="aspect-square max-w-[80px] border border-border bg-secondary/20 flex items-center justify-center">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-muted-foreground">
+                          <circle cx="12" cy="12" r="3" />
+                          <path d="M12 2v3M12 19v3M2 12h3M19 12h3" />
+                        </svg>
+                      </div>
+                      <p className="font-sans text-xs text-muted-foreground max-w-[220px] text-center">
+                        Location is required to confirm where the package was scanned.
+                      </p>
+                      {gpsError && (
+                        <p className="font-sans text-xs text-destructive max-w-[240px] text-center">
+                          {gpsError}
+                        </p>
+                      )}
+                      <Button
+                        type="button"
+                        variant="ink"
+                        size="ink"
+                        onClick={captureGpsLocation}
+                        disabled={gpsLoading}
+                      >
+                        {gpsLoading ? "Locating..." : "Enable Location"}
+                      </Button>
+                    </div>
+                  ) : (
+                    <>
+                      <p className="mb-4 font-sans text-xs text-success">
+                        ✓ Location captured: {gpsCoords.lat.toFixed(4)}, {gpsCoords.lng.toFixed(4)}
+                      </p>
+                      <div
                         className={cn(
-                          "text-muted-foreground rotate-45",
-                          scanState === "listening" && "animate-pulse"
+                          "aspect-square max-w-[100px] mx-auto border flex items-center justify-center transition-all duration-500",
+                          scanState === "listening" && "border-border bg-secondary/20",
+                          scanState === "detected" && "border-muted-foreground/40 bg-secondary/40 animate-pulse",
+                          scanState === "done" && "border-success/50 bg-success/10"
                         )}
-                        strokeWidth={1.5}
-                      />
-                    )}
-                  </div>
-                  <p className="mt-4 font-sans text-xs text-muted-foreground">
-                    {scanState === "listening" && "Hold sticker near device"}
-                    {scanState === "detected" && "Processing..."}
-                  </p>
-                  {scanState === "error" && (
-                     <p className="mt-4 font-sans text-xs text-destructive max-w-[250px] mx-auto">
-                       {scanError}
-                     </p>
+                      >
+                        {scanState === "done" ? (
+                          <Check size={24} className="text-success" strokeWidth={2} />
+                        ) : scanState === "error" ? (
+                          <AlertTriangle size={24} className="text-destructive" strokeWidth={2} />
+                        ) : (
+                          <Wifi
+                            size={24}
+                            className={cn(
+                              "text-muted-foreground rotate-45",
+                              scanState === "listening" && "animate-pulse"
+                            )}
+                            strokeWidth={1.5}
+                          />
+                        )}
+                      </div>
+                      <p className="mt-4 font-sans text-xs text-muted-foreground">
+                        {scanState === "listening" && "Hold sticker near device"}
+                        {scanState === "detected" && "Processing..."}
+                      </p>
+                      {scanState === "error" && (
+                         <p className="mt-4 font-sans text-xs text-destructive max-w-[250px] mx-auto">
+                           {scanError}
+                         </p>
+                      )}
+                    </>
                   )}
                 </div>
               </div>
