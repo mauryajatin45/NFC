@@ -514,7 +514,7 @@ export default function EnrollNfc() {
     return "pending";
   };
 
-  const canProceed = media.length > 0;
+
   const uploadProgressPercent = uploadProgress.total > 0
     ? (uploadProgress.current / uploadProgress.total) * 100
     : 0;
@@ -718,6 +718,15 @@ export default function EnrollNfc() {
                     <span>Upload</span>
                   </button>
                 </div>
+
+                {/* Skip button — full width, muted style matching the screenshot */}
+                <button
+                  type="button"
+                  onClick={handleContinueToWrite}
+                  className="w-full mt-2 py-2.5 bg-secondary text-foreground/70 text-sm font-medium hover:bg-secondary/80 active:scale-[0.98] transition-all text-center"
+                >
+                  Skip, no photos needed
+                </button>
 
                 {/* Media Grid - 3 columns, grows vertically */}
                 {media.length > 0 && (
@@ -944,14 +953,14 @@ export default function EnrollNfc() {
         </div>
 
         {/* Continue button - only in photos step with 2+ items */}
-        {currentStep === "photos" && canProceed && media.length >= 2 && (
-          <div className="pt-6">
+        {currentStep === "photos" && media.length >= 1 && (
+          <div className="pt-6 flex justify-center">
             <Button
               type="button"
               variant="ink"
               size="ink"
               onClick={handleContinueToWrite}
-              className="w-full max-w-sm mx-auto"
+              className="w-full block"
             >
               Continue to Write
             </Button>
