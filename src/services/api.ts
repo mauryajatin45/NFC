@@ -169,6 +169,7 @@ export async function fetchOrders(): Promise<{ data?: Order[], error?: { message
       shippingStatus: o.shippingStatus,
       shippingColor: o.shippingColor,
       verificationStatus: o.verificationStatus,
+      metafields: o.metafields || {},
       items: o.items.map((i: any, idx: number) => ({
         id: `item-${idx}`,
         sku: i.sku || `SKU-${idx}`,

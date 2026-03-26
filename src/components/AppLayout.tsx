@@ -22,6 +22,7 @@ const navItems = [
   { label: "Shipments", href: "/shipments" },
   { label: "Settings", href: "/settings" },
   { label: "Help", href: "/help" },
+  { label: "Admin Dashboard", href: "/admin/dashboard" },
 ];
 
 export function AppLayout({ children }: AppLayoutProps) {

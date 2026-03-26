@@ -938,6 +938,16 @@ export default function EnrollNfc() {
                       Write Tag Now
                     </Button>
                   )}
+                  {enrollmentResult?.nfc_token && (
+                    <Button
+                      type="button"
+                      variant="ink-outline"
+                      size="ink"
+                      onClick={() => window.open(`/t/${enrollmentResult.nfc_token}`, '_blank')}
+                    >
+                      Preview Tap Page
+                    </Button>
+                  )}
                   <Button
                     type="button"
                     variant={skippedWrite ? "ink-outline" : "ink"}

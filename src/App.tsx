@@ -20,6 +20,15 @@ const Settings = lazy(() => import("./pages/Settings"));
 const Shipments = lazy(() => import("./pages/Shipments"));
 const Help = lazy(() => import("./pages/Help"));
 const NotFound = lazy(() => import("./pages/NotFound"));
+const ConsumerTap = lazy(() => import("./pages/ConsumerTap"));
+
+// Admin routes
+const AdminLayout = lazy(() => import("./components/AdminLayout"));
+const AdminDashboard = lazy(() => import("./pages/admin/AdminDashboard"));
+const AdminOrders = lazy(() => import("./pages/admin/AdminOrders"));
+const AdminOrderDetail = lazy(() => import("./pages/admin/AdminOrderDetail"));
+const AdminTaggedShipments = lazy(() => import("./pages/admin/AdminTaggedShipments"));
+const AdminSettings = lazy(() => import("./pages/admin/AdminSettings"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -104,6 +113,14 @@ const App = () => (
                   </ProtectedRoute>
                 }
               />
+              <Route path="/admin" element={<ProtectedRoute><AdminLayout /></ProtectedRoute>}>
+                <Route path="dashboard" element={<AdminDashboard />} />
+                <Route path="orders" element={<AdminOrders />} />
+                <Route path="orders/:id" element={<AdminOrderDetail />} />
+                <Route path="tagged-shipments" element={<AdminTaggedShipments />} />
+                <Route path="settings" element={<AdminSettings />} />
+              </Route>
+              <Route path="/t/:id" element={<ConsumerTap />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </Suspense>
