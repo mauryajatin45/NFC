@@ -15,8 +15,8 @@ const useFetcher = <T,>() => {
   return {
     state: "idle",
     data: { remaining: 85, total: 100, success: true } as unknown as T,
-    load: (...args: any[]) => {},
-    submit: (...args: any[]) => {},
+    load: (..._args: any[]) => {},
+    submit: (..._args: any[]) => {},
     Form: (props: any) => <form {...props} />
   };
 };

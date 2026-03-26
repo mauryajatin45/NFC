@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-const useRouteLoaderData = (z: any) => ({});
+const useRouteLoaderData = (_z: string) => ({});
 const useFetcher = <T = any,>(): any => ({ load: () => { }, submit: () => { }, state: "idle", data: { users: [] } as unknown as T, Form: (props: any) => <form {...props} /> });
 import {
   BlockStack,
@@ -18,7 +18,7 @@ import {
 } from "@shopify/polaris";
 import { PlusIcon, DeleteIcon, SearchIcon, ClipboardIcon } from "@shopify/polaris-icons";
 const useShop = (): { currentShop: { name: string } | null, loading: boolean } => ({ currentShop: null, loading: false });
-import { Copy, Download, ExternalLink } from "lucide-react";
+import { Download, ExternalLink } from "lucide-react";
 
 interface WarehouseUser {
   id: string;

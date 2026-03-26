@@ -1,10 +1,10 @@
 import { useState, useEffect } from "react";
-import { useParams } from "react-router-dom";
+
 import { Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export default function ConsumerTap() {
-  const { id } = useParams();
+
   const [loading, setLoading] = useState(true);
 
   // Hardcoded loading phase duration

@@ -12,8 +12,8 @@ const useFetcher = <T,>() => {
         { orderNumber: "#1002", customer: "Jane Smith", date: "Yesterday", amount: "$85.00", status: "enrolled" },
       ]
     } as unknown as T,
-    load: (...args: any[]) => {},
-    submit: (...args: any[]) => {},
+    load: (..._args: any[]) => {},
+    submit: (..._args: any[]) => {},
     Form: (props: any) => <form {...props} />
   };
 };

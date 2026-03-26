@@ -1,6 +1,4 @@
-import { ReactNode } from "react";
-import { Link } from "react-router";
-import { Avatar } from "@shopify/polaris";
+import { type ReactNode } from "react";
 import TopNav from "./TopNav";
 
 interface PolarisAppLayoutProps {

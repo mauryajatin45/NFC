@@ -1,6 +1,6 @@
 import { useRef } from "react";
 import { Link } from "react-router";
-import { Button } from "./ui/button";
+import { Button } from "../ui/button";
 import { ArrowRight, Shield, Film } from "lucide-react";
 import { motion, useScroll, useTransform } from "framer-motion";
 
@@ -64,22 +64,7 @@ export const LandingPageContent = ({
   const statsScale = useTransform(statsProgress, [0, 1], [0.7, 1]);
   const statsOpacity = useTransform(statsProgress, [0, 0.3, 1], [0, 0.5, 1]);
 
-  // ink. Drop hero — same pattern as top hero
-  const { scrollYProgress: quoteProgress } = useScroll({
-    target: quoteRef,
-    offset: ["start start", "end start"],
-  });
-  const quoteY = useTransform(quoteProgress, [0, 1], ["0%", "-40%"]);
-  const quoteOpacity = useTransform(quoteProgress, [0, 1], [1, 1]);
 
-  // Drop cards - aggressive stagger with zoom
-  const { scrollYProgress: dropCardsProgress } = useScroll({
-    target: dropCardsRef,
-    offset: ["start end", "center center"],
-  });
-  const dropCardY = useTransform(dropCardsProgress, [0, 1], [200, 0]);
-  const dropCardScale = useTransform(dropCardsProgress, [0, 1], [0.7, 1]);
-  const dropCardOpacity = useTransform(dropCardsProgress, [0, 0.3, 1], [0, 0.2, 1]);
 
   return (
     <div className="landing-typography min-h-screen bg-warm-white overflow-x-hidden">

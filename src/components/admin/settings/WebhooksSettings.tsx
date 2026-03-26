@@ -21,7 +21,7 @@ const WebhooksSettings = () => {
   const [webhookUrl, setWebhookUrl] = useState("https://api.in.ink/shopify/webhook");
   const [hmacSecret, setHmacSecret] = useState("sk_live_abc123xyz789");
   const [showSecret, setShowSecret] = useState(false);
-  const [isConnected, setIsConnected] = useState(true);
+  const [isConnected] = useState(true);
   const [isTesting, setIsTesting] = useState(false);
   const [announcement, setAnnouncement] = useState("");
 

@@ -1,7 +1,7 @@
 import { type ReactNode } from "react";
 import { ArrowLeft } from "lucide-react";
-import { Link, useNavigate } from "react-router";
-import { Toaster } from "./ui/toaster";
+import { useNavigate } from "react-router";
+import { Toaster } from "../ui/toaster";
 interface AppLayoutProps {
   children: ReactNode;
   pageTitle?: string;

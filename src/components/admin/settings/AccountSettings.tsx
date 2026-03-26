@@ -1,6 +1,6 @@
 const useShop = () => ({ currentShop: null, loading: false });
 import { useNavigate } from "react-router-dom";
-const useRouteLoaderData = (z: any) => ({});
+const useRouteLoaderData = (_z: string) => ({});
 import {
   BlockStack,
   Card,
@@ -21,7 +21,7 @@ const AccountSettings = () => {
 
   const storeEmail = shopData?.contactEmail || "sam@in.ink";
   const installedDate = shopData?.installedDate || "Jan 15, 2024";
-  const displayDomain = shopData?.primaryDomain || shopData?.shopDomain || currentShop?.domain || "music-official.myshopify.com";
+  const displayDomain = shopData?.primaryDomain || shopData?.shopDomain || (currentShop as any)?.domain || "music-official.myshopify.com";
 
   if (loading) {
     return (

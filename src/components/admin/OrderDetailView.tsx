@@ -6,11 +6,11 @@ import { useNavigate } from "react-router-dom";
 const useFetcher = () => ({
   state: "idle",
   data: null,
-  load: (...args: any[]) => {},
-  submit: (...args: any[]) => {},
+  load: () => {},
+  submit: () => {},
   formData: { get: () => null }
 });
-const useRouteLoaderData = (route: string) => ({ shopDomain: "example.myshopify.com" });
+const useRouteLoaderData = (_route: string) => ({ shopDomain: "example.myshopify.com" });
 import {
   Page,
   Layout,
@@ -21,7 +21,6 @@ import {
   Badge,
   Divider,
   Thumbnail,
-  Button,
   Modal,
 } from "@shopify/polaris";
 import type { BadgeProps } from "@shopify/polaris";
@@ -162,11 +161,8 @@ export default function OrderDetailView({ order, onBack }: OrderDetailViewProps)
   const statusRaw = order.status?.toLowerCase() || "pending";
   const statusLabel = statusRaw.charAt(0).toUpperCase() + statusRaw.slice(1);
 
-  const addressLabel = order.customerAddress
-    ? `${order.customerAddress.city}, ${order.customerAddress.provinceCode} ${order.customerAddress.zip}`
-    : "";
+
   // Keep for customer card only — do NOT show in Tap Location map
-  const _ = addressLabel; // suppress unused warning
 
 
   const tabItems = [
@@ -373,7 +369,6 @@ export default function OrderDetailView({ order, onBack }: OrderDetailViewProps)
                     <PackagePhotos
                       proofId={proofId}
                       nfcTagUid={nfcUid}
-                      currency={order.currency}
                       isUploading={isUploading}
                       handleFileUpload={handleFileUpload}
                       onLightbox={setLightboxImage}
@@ -540,14 +535,12 @@ export default function OrderDetailView({ order, onBack }: OrderDetailViewProps)
 function PackagePhotos({
   proofId,
   nfcTagUid,
-  currency,
   isUploading,
   handleFileUpload,
   onLightbox,
 }: {
   proofId: string;
   nfcTagUid?: string;
-  currency: string;
   isUploading: boolean;
   handleFileUpload: any;
   onLightbox: (url: string) => void;
