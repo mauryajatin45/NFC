@@ -32,7 +32,8 @@ export function UsersTab() {
   const loadUsers = useCallback(async () => {
     setIsLoading(true);
     setIsError(false);
-    const { data, error } = await fetchUsers();
+    const merchantId = currentUser?.merchant_id || localStorage.getItem("merchantId") || "";
+    const { data, error } = await fetchUsers(merchantId);
     setIsLoading(false);
     
     if (error) {
@@ -47,7 +48,7 @@ export function UsersTab() {
         status: 'Active'
       })));
     }
-  }, []);
+  }, [currentUser]);
 
   useEffect(() => {
     loadUsers();

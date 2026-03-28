@@ -5,8 +5,8 @@ import { AppLayout } from "@/components/AppLayout";
 import { Button } from "@/components/ui/button";
 import { InkHeading, InkSubheading } from "@/components/InkScreen";
 import { cn } from "@/lib/utils";
-import { Camera, Check, Wifi, Loader2, AlertTriangle, X, Play, Upload, ChevronLeft } from "lucide-react";
-import { Progress } from "@/components/ui/progress";
+import { Camera, Check, Wifi, AlertTriangle, X, Play, Upload, ChevronLeft } from "lucide-react";
+
 
 /**
  * Compresses an image File to at most MAX_DIMENSION px on its longest side,
@@ -98,6 +98,10 @@ export default function EnrollNfc() {
 
   // Upload progress state
   const [uploadProgress, setUploadProgress] = useState({ current: 0, total: 0, status: "" });
+
+  // Shipping details — passed to the enroll API
+  const [trackingNumber, setTrackingNumber] = useState("");
+  const [carrierName, setCarrierName] = useState("");
 
   // GPS location state — required before NFC scan
   const [gpsCoords, setGpsCoords] = useState<{ lat: number; lng: number } | null>(null);
@@ -355,6 +359,9 @@ export default function EnrollNfc() {
           price: item.value || item.price || 0
         })) || [],
         warehouse_location: gpsCoords || { lat: 40.7128, lng: -74.0060 },
+        // Shipping details entered by warehouse staff
+        carrier_name: carrierName.trim() || undefined,
+        tracking_number: trackingNumber.trim() || undefined,
       };
 
       console.log("🔗 [EnrollNfc] Enroll payload:", { order_id: orderId, nfc_token: nfcToken, nfc_uid: scannedUid, order_number: enrollPayload.order_number, product_details_count: enrollPayload.product_details.length });
@@ -719,6 +726,39 @@ export default function EnrollNfc() {
                   </button>
                 </div>
 
+                {/* Shipping details — optional but passed to enroll API */}
+                <div className="mt-4 mb-2 space-y-2">
+                  <div>
+                    <label className="block text-xs text-muted-foreground mb-1 font-medium uppercase tracking-wider">
+                      Shipping Carrier <span className="font-normal normal-case">(optional)</span>
+                    </label>
+                    <select
+                      value={carrierName}
+                      onChange={e => setCarrierName(e.target.value)}
+                      className="w-full h-9 px-3 bg-card border border-border text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+                    >
+                      <option value="">— Select carrier —</option>
+                      <option value="USPS">USPS</option>
+                      <option value="UPS">UPS</option>
+                      <option value="FedEx">FedEx</option>
+                      <option value="DHL">DHL</option>
+                      <option value="Other">Other</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs text-muted-foreground mb-1 font-medium uppercase tracking-wider">
+                      Tracking Number <span className="font-normal normal-case">(optional)</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={trackingNumber}
+                      onChange={e => setTrackingNumber(e.target.value)}
+                      placeholder="e.g. 1Z999AA10123456784"
+                      className="w-full h-9 px-3 bg-card border border-border text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+                    />
+                  </div>
+                </div>
+
                 {/* Skip button — full width, muted style matching the screenshot */}
                 <button
                   type="button"
@@ -787,27 +827,83 @@ export default function EnrollNfc() {
             </div>
           )}
 
-          {/* UPLOADING STEP */}
+          {/* UPLOADING STEP — fullscreen video with crossfade + progress overlay */}
           {currentStep === "uploading" && (
-            <div className="bg-card border border-border p-6 animate-fade-in">
-              <div className="text-center">
-                <InkHeading>Processing</InkHeading>
-                <InkSubheading>{uploadProgress.status}</InkSubheading>
-                <div className="mt-10">
-                  <div className="aspect-square max-w-[100px] mx-auto border border-border bg-secondary/20 flex items-center justify-center">
-                    <Loader2 size={24} className="text-muted-foreground animate-spin" strokeWidth={1.5} />
-                  </div>
+            <div
+              style={{
+                position: "fixed",
+                inset: 0,
+                zIndex: 50,
+                background: "#000",
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                justifyContent: "center",
+                animation: "inkFadeIn 0.7s ease forwards",
+              }}
+            >
+              {/* Full-bleed background video — swap src with Alan's URL when ready */}
+              <video
+                src="https://storage.googleapis.com/gtv-videos-bucket/sample/TearsOfSteel.mp4"
+                style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", opacity: 0.65 }}
+                autoPlay
+                loop
+                muted
+                playsInline
+              />
 
-                  <div className="mt-6 max-w-[180px] mx-auto">
-                    <Progress value={uploadProgressPercent} className="h-1" />
-                    <p className="mt-2 font-sans text-xs text-muted-foreground">
-                      {uploadProgress.current} of {uploadProgress.total}
-                    </p>
-                  </div>
+              {/* Bottom gradient overlay with progress info */}
+              <div
+                style={{
+                  position: "absolute",
+                  bottom: 0,
+                  left: 0,
+                  right: 0,
+                  padding: "48px 24px 40px",
+                  background: "linear-gradient(to top, rgba(0,0,0,0.92) 0%, rgba(0,0,0,0.5) 60%, transparent 100%)",
+                  textAlign: "center",
+                }}
+              >
+                {/* ink. brand mark */}
+                <p style={{ color: "rgba(255,255,255,0.5)", fontSize: "13px", fontWeight: 600, letterSpacing: "0.12em", marginBottom: "16px", textTransform: "uppercase" }}>
+                  ink.
+                </p>
+
+                {/* Status heading */}
+                <p style={{ color: "#fff", fontSize: "22px", fontWeight: 700, marginBottom: "6px" }}>
+                  Processing
+                </p>
+                <p style={{ color: "rgba(255,255,255,0.65)", fontSize: "14px", marginBottom: "24px" }}>
+                  {uploadProgress.status}
+                </p>
+
+                {/* Progress bar */}
+                <div style={{ background: "rgba(255,255,255,0.2)", borderRadius: "4px", height: "4px", overflow: "hidden", maxWidth: "220px", margin: "0 auto 10px" }}>
+                  <div
+                    style={{
+                      height: "100%",
+                      background: "#fff",
+                      width: `${uploadProgressPercent}%`,
+                      transition: "width 0.5s ease",
+                      borderRadius: "4px",
+                    }}
+                  />
                 </div>
+
+                {/* Step counter */}
+                <p style={{ color: "rgba(255,255,255,0.5)", fontSize: "12px" }}>
+                  {uploadProgress.current} of {uploadProgress.total}
+                </p>
               </div>
+
+              {/* Keyframe injected inline */}
+              <style>{`
+                @keyframes inkFadeIn { from { opacity: 0 } to { opacity: 1 } }
+                @keyframes inkFadeOut { from { opacity: 1 } to { opacity: 0 } }
+              `}</style>
             </div>
           )}
+
 
           {/* WRITE TAG STEP */}
           {currentStep === "writeTag" && (
@@ -936,16 +1032,6 @@ export default function EnrollNfc() {
                       }}
                     >
                       Write Tag Now
-                    </Button>
-                  )}
-                  {enrollmentResult?.nfc_token && (
-                    <Button
-                      type="button"
-                      variant="ink-outline"
-                      size="ink"
-                      onClick={() => window.open(`/t/${enrollmentResult.nfc_token}`, '_blank')}
-                    >
-                      Preview Tap Page
                     </Button>
                   )}
                   <Button

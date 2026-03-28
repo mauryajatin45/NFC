@@ -21,6 +21,7 @@ const Shipments = lazy(() => import("./pages/Shipments"));
 const Help = lazy(() => import("./pages/Help"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 const ConsumerTap = lazy(() => import("./pages/ConsumerTap"));
+const ConsumerRecord = lazy(() => import("./pages/ConsumerRecord"));
 
 // Admin routes
 const AdminLayout = lazy(() => import("./components/AdminLayout"));
@@ -121,6 +122,7 @@ const App = () => (
                 <Route path="settings" element={<AdminSettings />} />
               </Route>
               <Route path="/t/:id" element={<ConsumerTap />} />
+              <Route path="/record/:id" element={<ConsumerRecord />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </Suspense>

@@ -11,7 +11,9 @@ export function useOrders() {
       }
       return response.data!;
     },
-    staleTime: 30 * 1000, // 30 seconds
+    staleTime: 0,            // always treat data as stale
+    refetchOnMount: "always", // refetch every time this hook mounts (page navigation)
+    refetchOnWindowFocus: true, // refetch when user returns to the browser tab
   });
 }
 

@@ -570,6 +570,33 @@ function PackagePhotos({
       .catch(() => setLoading(false));
   }, [proofId, isUploading]);
 
+  /* ── upload progress state ── */
+  const [uploadStep, setUploadStep] = useState(0);
+  const [uploadDone, setUploadDone] = useState(false);
+
+  useEffect(() => {
+    if (!isUploading) {
+      if (uploadStep > 0) setUploadDone(true);
+      return;
+    }
+    // Reset when a new upload starts
+    setUploadDone(false);
+    setUploadStep(0);
+    const t1 = setTimeout(() => setUploadStep(1), 400);
+    const t2 = setTimeout(() => setUploadStep(2), 1200);
+    return () => { clearTimeout(t1); clearTimeout(t2); };
+  }, [isUploading]);
+
+  // hide the done banner after 2 s
+  useEffect(() => {
+    if (!uploadDone) return;
+    const t = setTimeout(() => { setUploadDone(false); setUploadStep(0); }, 2000);
+    return () => clearTimeout(t);
+  }, [uploadDone]);
+
+  const totalSteps = 2;
+  const progressPct = uploadStep === 0 ? 20 : uploadStep === 1 ? 65 : 100;
+
   return (
     <BlockStack gap="300">
       <InlineStack align="space-between" blockAlign="center">
@@ -585,33 +612,94 @@ function PackagePhotos({
           />
           <label
             htmlFor="photo-upload-odv"
-            style={{ fontSize: "12px", cursor: "pointer", color: "var(--p-color-text-interactive)" }}
+            style={{ fontSize: "12px", cursor: isUploading ? "not-allowed" : "pointer", color: "var(--p-color-text-interactive)", opacity: isUploading ? 0.5 : 1 }}
           >
-            {isUploading ? "Uploading..." : "↑ Upload Photo"}
+            ↑ Upload Photo
           </label>
         </div>
       </InlineStack>
 
-      {loading ? (
-        <div style={{ padding: "32px", textAlign: "center" }}>
-          <Text as="p" tone="subdued" variant="bodySm">Loading photos…</Text>
+      {/* ── Upload progress card ── */}
+      {(isUploading || uploadDone) && (
+        <div style={{
+          background: "var(--p-color-bg-surface)",
+          border: "1px solid var(--p-color-border)",
+          borderRadius: "12px",
+          padding: "24px 20px",
+          textAlign: "center",
+          boxShadow: "0 2px 8px rgba(0,0,0,0.06)",
+        }}>
+          {/* Title */}
+          <p style={{ fontWeight: 700, fontSize: "18px", marginBottom: "4px", color: "var(--p-color-text)" }}>
+            {uploadDone ? "Done!" : "Processing"}
+          </p>
+          <p style={{ fontSize: "13px", color: "var(--p-color-text-subdued)", marginBottom: "20px" }}>
+            {uploadDone ? "Upload complete ✓" : uploadStep >= 2 ? "All media uploaded!" : "Uploading your photo…"}
+          </p>
+
+          {/* Spinner thumbnail placeholder */}
+          {!uploadDone && (
+            <div style={{
+              width: "80px",
+              height: "80px",
+              margin: "0 auto 20px",
+              border: "1px solid var(--p-color-border)",
+              borderRadius: "8px",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              background: "var(--p-color-bg-surface-secondary)",
+            }}>
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" style={{ color: "var(--p-color-text-subdued)", animation: "spin 1s linear infinite" }}>
+                <circle cx="12" cy="12" r="10" strokeOpacity="0.25" />
+                <path d="M12 2a10 10 0 0 1 10 10" />
+              </svg>
+            </div>
+          )}
+
+          {/* Progress bar */}
+          <div style={{ background: "var(--p-color-bg-surface-secondary)", borderRadius: "4px", height: "6px", overflow: "hidden", marginBottom: "8px" }}>
+            <div style={{
+              height: "100%",
+              background: uploadDone ? "#22c55e" : "var(--p-color-text)",
+              width: `${uploadDone ? 100 : progressPct}%`,
+              transition: "width 0.5s ease, background 0.3s ease",
+              borderRadius: "4px",
+            }} />
+          </div>
+
+          {/* Step counter */}
+          <p style={{ fontSize: "12px", color: "var(--p-color-text-subdued)" }}>
+            {uploadDone ? `${totalSteps} of ${totalSteps}` : `${Math.min(uploadStep + 1, totalSteps)} of ${totalSteps}`}
+          </p>
         </div>
-      ) : photos.length > 0 ? (
-        <InlineStack gap="300">
-          {photos.map((url, i) => (
-            <button
-              key={i}
-              onClick={() => onLightbox(url)}
-              style={{ border: "1px solid var(--p-color-border)", borderRadius: "4px", overflow: "hidden", cursor: "pointer", background: "none", padding: 0 }}
-            >
-              <Thumbnail source={url} alt={`Package Proof ${i + 1}`} size="large" />
-            </button>
-          ))}
-        </InlineStack>
-      ) : (
-        <div style={{ background: "var(--p-color-bg-surface-secondary)", borderRadius: "8px", padding: "32px", textAlign: "center", border: "2px dashed var(--p-color-border)" }}>
-          <Text as="p" tone="subdued" variant="bodySm">No photos uploaded yet</Text>
-        </div>
+      )}
+
+      {/* ── Spinner keyframe ── */}
+      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+
+      {!isUploading && !uploadDone && (
+        loading ? (
+          <div style={{ padding: "32px", textAlign: "center" }}>
+            <Text as="p" tone="subdued" variant="bodySm">Loading photos…</Text>
+          </div>
+        ) : photos.length > 0 ? (
+          <InlineStack gap="300">
+            {photos.map((url, i) => (
+              <button
+                key={i}
+                onClick={() => onLightbox(url)}
+                style={{ border: "1px solid var(--p-color-border)", borderRadius: "4px", overflow: "hidden", cursor: "pointer", background: "none", padding: 0 }}
+              >
+                <Thumbnail source={url} alt={`Package Proof ${i + 1}`} size="large" />
+              </button>
+            ))}
+          </InlineStack>
+        ) : (
+          <div style={{ background: "var(--p-color-bg-surface-secondary)", borderRadius: "8px", padding: "32px", textAlign: "center", border: "2px dashed var(--p-color-border)" }}>
+            <Text as="p" tone="subdued" variant="bodySm">No photos uploaded yet</Text>
+          </div>
+        )
       )}
     </BlockStack>
   );

@@ -1,6 +1,5 @@
-import { useState, useEffect, useCallback } from "react";
-const useRouteLoaderData = (_z: string) => ({});
-const useFetcher = <T = any,>(): any => ({ load: () => { }, submit: () => { }, state: "idle", data: { users: [] } as unknown as T, Form: (props: any) => <form {...props} /> });
+import { useState, useCallback } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   BlockStack,
   Card,
@@ -15,10 +14,12 @@ import {
   Select,
   Layout,
   Icon,
+  Spinner,
+  Banner,
 } from "@shopify/polaris";
 import { PlusIcon, DeleteIcon, SearchIcon, ClipboardIcon } from "@shopify/polaris-icons";
-const useShop = (): { currentShop: { name: string } | null, loading: boolean } => ({ currentShop: null, loading: false });
 import { Download, ExternalLink } from "lucide-react";
+import { fetchUsers, deleteUser, adminCreateUser } from "@/services/api";
 
 interface WarehouseUser {
   id: string;
@@ -28,82 +29,121 @@ interface WarehouseUser {
   createdAt: string | null;
 }
 
-const UserManagementSettings = () => {
-  const { currentShop } = useShop();
-  // Dynamic data from the `app.settings` route loader
-  const shopData = useRouteLoaderData("routes/app.settings") as any;
+// Map MerchantUser (API) → WarehouseUser (UI)
+function mapUser(u: any): WarehouseUser {
+  return {
+    id: u.user_id || u.id || "",
+    name: u.name || "",
+    email: u.email || "",
+    role: u.role || "operator",
+    createdAt: u.created_at || null,
+  };
+}
 
-  const listFetcher = useFetcher<{ users: WarehouseUser[] }>();
-  const mutateFetcher = useFetcher<{ success?: boolean; error?: string; userId?: string }>();
+const UserManagementSettings = () => {
+  const queryClient = useQueryClient();
+  const merchantId = localStorage.getItem("merchantId") || "";
+  const storeName = localStorage.getItem("storeName") || "Luminary Goods";
+  const merchantDisplayId = merchantId ? `MID-${merchantId.slice(0, 6).toUpperCase()}` : "MID-UNKNOWN";
 
   const [search, setSearch] = useState("");
   const [inviteOpen, setInviteOpen] = useState(false);
-
-  // Form state
   const [inviteName, setInviteName] = useState("");
   const [inviteEmail, setInviteEmail] = useState("");
   const [invitePassword, setInvitePassword] = useState("");
-  const [inviteRole, setInviteRole] = useState("operator");
+  const [inviteRole] = useState("operator");
+  const [inviteError, setInviteError] = useState<string | null>(null);
 
-  // Load users on mount
-  useEffect(() => {
-    listFetcher.load("/app/api/users");
-  }, []);
+  // ── Fetch users ──
+  const {
+    data: rawUsers,
+    isLoading,
+    isError,
+    error,
+  } = useQuery({
+    queryKey: ["warehouse-users", merchantId],
+    queryFn: async () => {
+      if (!merchantId) throw new Error("Not authenticated — merchant ID missing.");
+      const res = await fetchUsers(merchantId);
+      if (res.error) throw new Error(res.error.message);
+      return (res.data ?? []).map(mapUser);
+    },
+    staleTime: 0,
+    refetchOnMount: "always",
+    enabled: !!merchantId,
+  });
 
-  // After a successful mutation, reload list and close form
-  useEffect(() => {
-    if (mutateFetcher.state === "idle" && mutateFetcher.data) {
-      if (mutateFetcher.data.success) {
-        setInviteOpen(false);
-        setInviteName("");
-        setInviteEmail("");
-        setInvitePassword("");
-        // Reload the list
-        listFetcher.load("/app/api/users");
-      }
-    }
-  }, [mutateFetcher.state, mutateFetcher.data]);
-
-  const handleInvite = useCallback(() => {
-    if (!inviteName || !inviteEmail || !invitePassword) return;
-
-    mutateFetcher.submit(
-      JSON.stringify({
-        intent: "create",
-        name: inviteName.trim(),
-        email: inviteEmail.trim(),
-        password: invitePassword
-      }),
-      { method: "POST", action: "/app/api/users", encType: "application/json" }
-    );
-  }, [inviteName, inviteEmail, invitePassword]);
-
-  const handleRemove = useCallback((id: string) => {
-    mutateFetcher.submit(
-      JSON.stringify({ intent: "delete", userId: id }),
-      { method: "POST", action: "/app/api/users", encType: "application/json" }
-    );
-  }, []);
-
-  const users: WarehouseUser[] = listFetcher.data?.users ?? [];
+  const users: WarehouseUser[] = rawUsers ?? [];
   const filtered = users.filter(
     (m) =>
       m.name.toLowerCase().includes(search.toLowerCase()) ||
       m.email.toLowerCase().includes(search.toLowerCase())
   );
 
+  // ── Create / invite user ──
+  const inviteMutation = useMutation({
+    mutationFn: async () => {
+      if (!inviteName || !inviteEmail || !invitePassword)
+        throw new Error("All fields are required.");
+      const res = await adminCreateUser({
+        merchant_id: merchantId,
+        name: inviteName.trim(),
+        email: inviteEmail.trim(),
+        password: invitePassword,
+      } as any);
+      if (res.error) throw new Error(res.error.message);
+      return res.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["warehouse-users", merchantId] });
+      setInviteOpen(false);
+      setInviteName("");
+      setInviteEmail("");
+      setInvitePassword("");
+      setInviteError(null);
+    },
+    onError: (err: Error) => setInviteError(err.message),
+  });
+
+  // ── Delete user ──
+  const deleteMutation = useMutation({
+    mutationFn: async (userId: string) => {
+      const res = await deleteUser(userId);
+      if (res.error) throw new Error(res.error.message);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["warehouse-users", merchantId] });
+    },
+    onError: (err: Error) => alert(`Delete failed: ${err.message}`),
+  });
+
+  const handleInvite = useCallback(() => {
+    setInviteError(null);
+    inviteMutation.mutate();
+  }, [inviteName, inviteEmail, invitePassword]);
+
+  const handleRemove = useCallback((id: string, name: string) => {
+    if (confirm(`Remove ${name}? They will no longer be able to log in.`)) {
+      deleteMutation.mutate(id);
+    }
+  }, []);
+
   const getInitials = (name: string) =>
     name.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2);
 
-  const merchantId = shopData?.shopId || "MID-7X92KF";
-  const storeName = shopData?.shopName || currentShop?.name || "Luminary Goods";
-
-  const isSubmitting = mutateFetcher.state !== "idle";
+  const isSubmitting = inviteMutation.isPending;
 
   return (
     <Layout>
       <Layout.AnnotatedSection title="Team Members">
         <BlockStack gap="400">
+          {/* Error banner */}
+          {isError && (
+            <Banner tone="critical">
+              <p>{(error as Error)?.message || "Failed to load users."}</p>
+            </Banner>
+          )}
+
           {/* Actions */}
           <InlineStack align="space-between" blockAlign="center">
             <div style={{ maxWidth: "280px", width: "100%" }}>
@@ -124,56 +164,66 @@ const UserManagementSettings = () => {
 
           {/* Users Table */}
           <Card padding="0">
-            <IndexTable
-              resourceName={{ singular: "user", plural: "users" }}
-              itemCount={filtered.length}
-              headings={[
-                { title: "User" },
-                { title: "Role" },
-                { title: "Status" },
-                { title: "" },
-              ]}
-              selectable={false}
-              loading={listFetcher.state === "loading"}
-            >
-              {filtered.map((member, index) => (
-                <IndexTable.Row id={member.id} key={member.id} position={index} selected={false}>
-                  <IndexTable.Cell>
-                    <InlineStack gap="300" blockAlign="center">
-                      <Avatar initials={getInitials(member.name)} size="sm" />
-                      <BlockStack gap="0">
-                        <Text as="span" variant="bodyMd" fontWeight="medium">{member.name}</Text>
-                        <Text as="span" variant="bodySm" tone="subdued">{member.email}</Text>
-                      </BlockStack>
-                    </InlineStack>
-                  </IndexTable.Cell>
-                  <IndexTable.Cell>
-                    <Badge tone="info">{member.role}</Badge>
-                  </IndexTable.Cell>
-                  <IndexTable.Cell>
-                    <Badge tone="success">Active</Badge>
-                  </IndexTable.Cell>
-                  <IndexTable.Cell>
-                    <Button
-                      icon={DeleteIcon}
-                      variant="plain"
-                      tone="critical"
-                      onClick={() => {
-                        if (confirm(`Are you sure you want to remove ${member.name}?`)) {
-                          handleRemove(member.id);
-                        }
-                      }}
-                      accessibilityLabel="Remove user"
-                    />
-                  </IndexTable.Cell>
-                </IndexTable.Row>
-              ))}
-            </IndexTable>
+            {isLoading ? (
+              <div style={{ padding: "48px", textAlign: "center" }}>
+                <Spinner size="large" />
+              </div>
+            ) : (
+              <IndexTable
+                resourceName={{ singular: "user", plural: "users" }}
+                itemCount={filtered.length}
+                headings={[
+                  { title: "User" },
+                  { title: "Role" },
+                  { title: "Status" },
+                  { title: "" },
+                ]}
+                selectable={false}
+                loading={deleteMutation.isPending}
+                emptyState={
+                  <div style={{ padding: "48px", textAlign: "center" }}>
+                    <Text as="p" tone="subdued" variant="bodySm">
+                      {search ? "No users match your search." : "No team members yet. Invite one to get started."}
+                    </Text>
+                  </div>
+                }
+              >
+                {filtered.map((member, index) => (
+                  <IndexTable.Row id={member.id} key={member.id} position={index} selected={false}>
+                    <IndexTable.Cell>
+                      <InlineStack gap="300" blockAlign="center">
+                        <Avatar initials={getInitials(member.name)} size="sm" />
+                        <BlockStack gap="0">
+                          <Text as="span" variant="bodyMd" fontWeight="medium">{member.name}</Text>
+                          <Text as="span" variant="bodySm" tone="subdued">{member.email}</Text>
+                        </BlockStack>
+                      </InlineStack>
+                    </IndexTable.Cell>
+                    <IndexTable.Cell>
+                      <Badge tone="info">{member.role}</Badge>
+                    </IndexTable.Cell>
+                    <IndexTable.Cell>
+                      <Badge tone="success">Active</Badge>
+                    </IndexTable.Cell>
+                    <IndexTable.Cell>
+                      <Button
+                        icon={DeleteIcon}
+                        variant="plain"
+                        tone="critical"
+                        onClick={() => handleRemove(member.id, member.name)}
+                        accessibilityLabel={`Remove ${member.name}`}
+                        loading={deleteMutation.isPending && deleteMutation.variables === member.id}
+                      />
+                    </IndexTable.Cell>
+                  </IndexTable.Row>
+                ))}
+              </IndexTable>
+            )}
           </Card>
         </BlockStack>
       </Layout.AnnotatedSection>
 
-      {/* Warehouse App */}
+      {/* Warehouse App download section */}
       <Layout.AnnotatedSection
         title="Warehouse App"
         description="Download the INK enrollment app for your packing stations."
@@ -207,11 +257,9 @@ const UserManagementSettings = () => {
                 </InlineStack>
                 <InlineStack gap="200" blockAlign="center">
                   <Text as="span" tone="subdued" variant="bodySm">Merchant ID:</Text>
-                  <code style={{ fontSize: "12px", fontFamily: "monospace", background: "var(--p-color-bg-surface-secondary)", padding: "2px 6px" }}>{merchantId}</code>
+                  <code style={{ fontSize: "12px", fontFamily: "monospace", background: "var(--p-color-bg-surface-secondary)", padding: "2px 6px" }}>{merchantDisplayId}</code>
                   <button
-                    onClick={() => {
-                      navigator.clipboard.writeText(merchantId);
-                    }}
+                    onClick={() => navigator.clipboard.writeText(merchantDisplayId)}
                     style={{ background: "none", border: "none", cursor: "pointer", padding: "2px", display: 'flex', alignItems: 'center' }}
                     aria-label="Copy Merchant ID"
                   >
@@ -235,17 +283,21 @@ const UserManagementSettings = () => {
       {/* Invite Modal */}
       <Modal
         open={inviteOpen}
-        onClose={() => setInviteOpen(false)}
+        onClose={() => { setInviteOpen(false); setInviteError(null); }}
         title="Invite a user"
         primaryAction={{
           content: isSubmitting ? "Inviting..." : "Send Invite",
           onAction: handleInvite,
-          disabled: !inviteEmail || !inviteName || !invitePassword || isSubmitting
+          disabled: !inviteEmail || !inviteName || !invitePassword || isSubmitting,
+          loading: isSubmitting,
         }}
-        secondaryActions={[{ content: "Cancel", onAction: () => setInviteOpen(false) }]}
+        secondaryActions={[{ content: "Cancel", onAction: () => { setInviteOpen(false); setInviteError(null); } }]}
       >
         <Modal.Section>
           <BlockStack gap="400">
+            {inviteError && (
+              <Banner tone="critical"><p>{inviteError}</p></Banner>
+            )}
             <TextField
               label="Full name"
               placeholder="Jane Smith"
@@ -272,15 +324,10 @@ const UserManagementSettings = () => {
             <Select
               label="Role"
               value={inviteRole}
-              onChange={setInviteRole}
-              options={[
-                { label: "Operator", value: "operator" },
-              ]}
+              onChange={() => {}}
+              options={[{ label: "Operator", value: "operator" }]}
               disabled
             />
-            {mutateFetcher.data?.error && (
-              <Text as="p" tone="critical">{mutateFetcher.data.error}</Text>
-            )}
           </BlockStack>
         </Modal.Section>
       </Modal>

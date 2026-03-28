@@ -79,6 +79,57 @@ export async function adminCreateUser(payload: AdminUserCreatePayload): Promise<
   }
 }
 
+export async function fetchUsers(merchantId: string): Promise<{ data?: MerchantUser[], error?: { message: string } }> {
+  try {
+    const adminSecret = import.meta.env.VITE_INK_ADMIN_SECRET;
+    if (!adminSecret) throw new Error("Admin secret is not configured.");
+
+    const response = await fetch(`${API_BASE}/admin/users?merchant_id=${encodeURIComponent(merchantId)}`, {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Admin-Secret": adminSecret,
+      },
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => null);
+      throw new Error(errorData?.error || "Failed to fetch users");
+    }
+
+    const raw = await response.json();
+    // API may return { users: [...] } or a plain array
+    const users: MerchantUser[] = Array.isArray(raw) ? raw : (raw.users ?? []);
+    return { data: users };
+  } catch (error: any) {
+    return { error: { message: error.message || "Unable to fetch users" } };
+  }
+}
+
+export async function deleteUser(userId: string): Promise<{ error?: { message: string } }> {
+  try {
+    const adminSecret = import.meta.env.VITE_INK_ADMIN_SECRET;
+    if (!adminSecret) throw new Error("Admin secret is not configured.");
+
+    const response = await fetch(`${API_BASE}/admin/users/${encodeURIComponent(userId)}`, {
+      method: "DELETE",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Admin-Secret": adminSecret,
+      },
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => null);
+      throw new Error(errorData?.error || "Failed to delete user");
+    }
+
+    return {};
+  } catch (error: any) {
+    return { error: { message: error.message || "Unable to delete user" } };
+  }
+}
+
 export async function requestPasswordReset(_email?: string): Promise<{ error?: { message: string } }> {
   // Mock API call
   return new Promise((resolve) => setTimeout(() => resolve({}), 1000));
@@ -200,30 +251,3 @@ export async function fetchOrder(id: string): Promise<{ data?: Order, error?: { 
   return { data: order };
 }
 
-export async function fetchUsers(): Promise<{ data?: MerchantUser[], error?: { message: string } }> {
-  try {
-    const APP_URL = import.meta.env.VITE_SHOPIFY_APP_URL;
-    if (!APP_URL) throw new Error("VITE_SHOPIFY_APP_URL is not configured.");
-
-    const token = localStorage.getItem('token');
-    if (!token) throw new Error("Not authenticated");
-
-    const response = await fetch(`${APP_URL}/app/api/users`, {
-      method: "GET",
-      headers: {
-        "Authorization": `Bearer ${token}`,
-        "Content-Type": "application/json"
-      }
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => null);
-      throw new Error(errorData?.error || "Failed to fetch users");
-    }
-
-    const { users } = await response.json();
-    return { data: users };
-  } catch (error: any) {
-    return { error: { message: error.message || "Failed to load users" } };
-  }
-}

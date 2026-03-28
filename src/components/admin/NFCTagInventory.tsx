@@ -1,42 +1,33 @@
-import { useEffect } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
-// import { useFetcher } from "react-router";
 import { Button } from "@/components/ui/button";
-import { AlertTriangle } from "lucide-react";
+import { AlertTriangle, RefreshCw } from "lucide-react";
+import { fetchInventory } from "@/services/api";
+import { LowInventoryAlert } from "@/components/LowInventoryAlert";
 
-interface InventoryData {
-  remaining: number;
-  total: number;
-  success: boolean;
-}
-
-// Mock fetcher to allow rendering outside of a Remix Data Router
-const useFetcher = <T,>() => {
-  return {
-    state: "idle",
-    data: { remaining: 85, total: 100, success: true } as unknown as T,
-    load: (..._args: any[]) => {},
-    submit: (..._args: any[]) => {},
-    Form: (props: any) => <form {...props} />
-  };
-};
+// The "total" cap shown in the Shopify app is 100 (the default order quantity).
+// When you reorder, this resets. Adjust if your order size changes.
+const DEFAULT_ORDER_SIZE = 100;
 
 const NFCTagInventory = () => {
-  const fetcher = useFetcher<InventoryData>();
-  
-  useEffect(() => {
-    if (fetcher.state === "idle" && !fetcher.data) {
-      fetcher.load("/app/api/dashboard/inventory");
-    }
-  }, [fetcher]);
+  const { data, isLoading, isError, refetch, isRefetching } = useQuery({
+    queryKey: ["nfc-inventory"],
+    queryFn: async () => {
+      const res = await fetchInventory();
+      if (res.error) throw new Error(res.error.message);
+      return res.data!;
+    },
+    staleTime: 0,
+    refetchOnMount: "always",
+    refetchOnWindowFocus: true,
+    refetchInterval: 60 * 1000, // auto-refresh every 60 s
+  });
 
-  const remaining = fetcher.data?.remaining ?? 0;
-  const total = fetcher.data?.total ?? 100;
-  const isLoading = fetcher.state === "loading";
-
-  const percentage = total > 0 ? Math.round((remaining / total) * 100) : 0;
+  const remaining = data?.current_count ?? 0;
+  const total = DEFAULT_ORDER_SIZE;
+  const percentage = total > 0 ? Math.max(0, Math.round((remaining / total) * 100)) : 0;
   const isLowInventory = remaining < 20;
-  const isCriticalInventory = remaining < 10;
+  const isCriticalInventory = remaining < 10 || remaining < 0;
 
   const getProgressFillStyle = (): React.CSSProperties => {
     if (isCriticalInventory) {
@@ -48,70 +39,97 @@ const NFCTagInventory = () => {
         borderRadius: "2px",
       };
     }
-    if (isLowInventory) {
-      return { backgroundColor: "#FFEB3B" };
-    }
+    if (isLowInventory) return { backgroundColor: "#FFEB3B" };
     return { backgroundColor: "#000000" };
   };
 
-
   return (
-    <div
-      className="bg-card border border-border rounded-md p-4 sm:p-6 shadow-[0_1px_2px_rgba(0,0,0,0.04)]"
-      role="region"
-      aria-label="NFC tag inventory"
-    >
-      {/* Header */}
-      <h3 className="text-sm sm:text-[15px] font-semibold text-foreground mb-4 sm:mb-5">
-        NFC Tag Inventory
-      </h3>
+    <>
+      {/* Floating alert — renders a warning banner or critical modal depending on threshold */}
+      <LowInventoryAlert remaining={remaining} total={total} isLoading={isLoading} />
+
+      <div
+        className="bg-card border border-border rounded-md p-4 sm:p-6 shadow-[0_1px_2px_rgba(0,0,0,0.04)]"
+        role="region"
+        aria-label="NFC tag inventory"
+      >
+        {/* Header */}
+      <div className="flex items-center justify-between mb-4 sm:mb-5">
+        <h3 className="text-sm sm:text-[15px] font-semibold text-foreground">
+          NFC Tag Inventory
+        </h3>
+        <button
+          type="button"
+          onClick={() => refetch()}
+          disabled={isRefetching || isLoading}
+          className="text-muted-foreground hover:text-foreground transition-colors disabled:opacity-40"
+          aria-label="Refresh inventory"
+        >
+          <RefreshCw size={14} className={isRefetching ? "animate-spin" : ""} />
+        </button>
+      </div>
 
       {/* Count Display */}
       <div className="mb-3 sm:mb-4">
         <div className="flex items-center gap-2">
           {(isLowInventory || isCriticalInventory) && (
-            <AlertTriangle 
-              className="h-6 w-6" 
+            <AlertTriangle
+              className="h-6 w-6"
               style={{ color: isCriticalInventory ? "#000000" : "#FFEB3B" }}
               aria-hidden="true"
             />
           )}
           <span className="text-2xl sm:text-[32px] font-light text-foreground">
-            {isLoading ? "..." : `${remaining} / ${total}`}
+            {isLoading ? "..." : isError ? "—" : `${remaining} / ${total}`}
           </span>
         </div>
         <p className="text-[13px]" style={{ color: "#666666" }}>
-          remaining
+          {isError ? (
+            <span className="text-destructive text-xs">
+              Failed to load.{" "}
+              <button
+                type="button"
+                onClick={() => refetch()}
+                className="underline hover:no-underline"
+              >
+                Retry
+              </button>
+            </span>
+          ) : (
+            "remaining"
+          )}
         </p>
       </div>
 
       {/* Progress Bar */}
-      <div className="relative">
-        <div
-          className="h-2 w-full overflow-hidden rounded-[4px]"
-          style={{ backgroundColor: "#F5F5F5" }}
-          role="progressbar"
-          aria-valuenow={remaining}
-          aria-valuemin={0}
-          aria-valuemax={total}
-          aria-label={`NFC tag inventory: ${remaining} of ${total} remaining`}
-        >
+      {!isError && (
+        <div className="relative">
           <div
-            className="h-full transition-all duration-300 ease-out rounded-[4px]"
-            style={{
-              width: `${percentage}%`,
-              ...getProgressFillStyle(),
-            }}
-          />
+            className="h-2 w-full overflow-hidden rounded-[4px]"
+            style={{ backgroundColor: "#F5F5F5" }}
+            role="progressbar"
+            aria-valuenow={remaining}
+            aria-valuemin={0}
+            aria-valuemax={total}
+            aria-label={`NFC tag inventory: ${remaining} of ${total} remaining`}
+          >
+            <div
+              className="h-full transition-all duration-300 ease-out rounded-[4px]"
+              style={{
+                width: `${Math.min(100, Math.max(0, percentage))}%`,
+                ...getProgressFillStyle(),
+              }}
+            />
+          </div>
+          <p
+            className="text-[13px] text-right mt-1"
+            style={{ color: "#666666" }}
+            aria-hidden="true"
+          >
+            {isLoading ? "..." : `${percentage}%`}
+          </p>
         </div>
-        <p 
-          className="text-[13px] text-right mt-1"
-          style={{ color: "#666666" }}
-          aria-hidden="true"
-        >
-          {percentage}%
-        </p>
-      </div>
+      )}
 
       {/* Reorder Button */}
       <Button
@@ -123,11 +141,12 @@ const NFCTagInventory = () => {
             : "border-border hover:border-foreground"
         }`}
       >
-        <Link to="/app/settings?tab=tags">
+        <Link to="/admin/settings?tab=tags">
           {isCriticalInventory ? "Reorder Now" : "Reorder Tags"}
         </Link>
       </Button>
     </div>
+    </>
   );
 };
 
