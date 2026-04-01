@@ -251,3 +251,29 @@ export async function fetchOrder(id: string): Promise<{ data?: Order, error?: { 
   return { data: order };
 }
 
+export async function fetchDashboardMetrics(): Promise<{ data?: any, error?: { message: string } }> {
+  try {
+    const APP_URL = import.meta.env.VITE_SHOPIFY_APP_URL || "https://shopify-app-250065525755.us-central1.run.app";
+    const token = localStorage.getItem('token');
+    if (!token) throw new Error("Not authenticated");
+
+    const response = await fetch(`${APP_URL}/api/dashboard/metrics`, {
+      method: "GET",
+      headers: {
+        "Authorization": `Bearer ${token}`,
+        "Content-Type": "application/json"
+      }
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => null);
+      throw new Error(errorData?.error || "Failed to fetch metrics");
+    }
+
+    const data = await response.json();
+    return { data };
+  } catch (error: any) {
+    return { error: { message: error.message || "Unable to fetch dashboard metrics" } };
+  }
+}
+
