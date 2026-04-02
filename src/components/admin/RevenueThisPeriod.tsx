@@ -1,4 +1,4 @@
-import { TrendingUp, TrendingDown, RefreshCw, Loader2, AlertTriangle } from "lucide-react";
+import { TrendingUp, TrendingDown, Loader2, AlertTriangle } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { fetchDashboardMetrics } from "@/services/api";
 
@@ -15,7 +15,6 @@ const RevenueThisPeriod = () => {
   });
 
   const metrics = result?.currentPeriod || { totalValue: 0, count: 0, aov: 0 };
-  const prevMetrics = result?.previousPeriod || { totalValue: 0, count: 0, aov: 0 };
   const trends = result?.trends || { valueProtected: 0, enrolledCount: 0, aov: 0 };
 
   const isUp = trends.valueProtected >= 0;
