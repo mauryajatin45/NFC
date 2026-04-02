@@ -3,7 +3,7 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import { Sheet, SheetContent, SheetTrigger, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -61,6 +61,8 @@ export function AppLayout({ children }: AppLayoutProps) {
               </button>
             </SheetTrigger>
             <SheetContent side="left" className="w-[280px] p-0 bg-foreground border-r-0">
+              <SheetTitle className="sr-only">Navigation Menu</SheetTitle>
+              <SheetDescription className="sr-only">Main application navigation links</SheetDescription>
               <nav className="flex flex-col h-full">
                 {/* Nav Items */}
                 <div className="flex-1 pt-6">
