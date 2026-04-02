@@ -39,9 +39,11 @@ function getStatusConfig(status: Order["status"]) {
 }
 
 export function OrderCard({ order, isSelected, onSelect }: OrderCardProps) {
-  const totalValue = order.items.reduce((sum, item) => sum + item.value, 0);
-  const currency = order.items[0]?.currency || "USD";
+  const totalValue = parseFloat(order.totalPrice || "0");
+  const currency = order.currency || "USD";
   const statusConfig = getStatusConfig(order.status);
+  
+  console.log(`[OrderCard] Rendering ${order.name}: totalPrice=${order.totalPrice}, totalValue=${totalValue}`, order);
 
   return (
     <button
