@@ -257,11 +257,12 @@ export async function fetchDashboardMetrics(): Promise<{ data?: any, error?: { m
     const token = localStorage.getItem('token');
     if (!token) throw new Error("Not authenticated");
 
-    const response = await fetch(`${APP_URL}/api/dashboard/metrics`, {
+    const response = await fetch(`${APP_URL}/app/api/dashboard/metrics`, {
       method: "GET",
       headers: {
         "Authorization": `Bearer ${token}`,
-        "Content-Type": "application/json"
+        "Content-Type": "application/json",
+        "X-Client-Type": "PWA"
       }
     });
 
