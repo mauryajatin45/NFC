@@ -24,16 +24,18 @@ interface LowInventoryAlertProps {
   remaining: number;
   total: number;
   isLoading?: boolean;
+  lowThreshold?: number; // configurable — defaults to LOW_THRESHOLD (20)
 }
 
 // ── Main component ────────────────────────────────────────────────────────────
-export function LowInventoryAlert({ remaining, total, isLoading = false }: LowInventoryAlertProps) {
+export function LowInventoryAlert({ remaining, total, isLoading = false, lowThreshold }: LowInventoryAlertProps) {
   const [bannerDismissed, setBannerDismissed] = useState(false);
   const [modalDismissed, setModalDismissed] = useState(false);
 
+  const effectiveLowThreshold = lowThreshold ?? LOW_THRESHOLD;
   const isCritical = remaining <= CRITICAL_THRESHOLD;
 
-  if (isLoading || remaining >= LOW_THRESHOLD) return null;
+  if (isLoading || remaining >= effectiveLowThreshold) return null;
   if (isCritical && modalDismissed) return null;
 
   const handleReorder = () => window.open(REORDER_URL, "_blank", "noopener");

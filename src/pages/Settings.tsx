@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
 import { AppLayout } from "@/components/AppLayout";
 import { PageHeader } from "@/components/PageHeader";
@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/contexts/AuthContext";
 import { useInventory } from "@/hooks/useInventory";
+import { fetchInventorySettings, updateInventorySettings } from "@/services/api";
 import {
   Table,
   TableBody,
@@ -70,6 +71,34 @@ export default function Settings() {
   const currentTab = searchParams.get("tab") || "account";
   const { user: session } = useAuth(); // Renaming destructure to match existing 'user' state
   const { data: inventory } = useInventory();
+
+  // Inventory settings state
+  const [threshold, setThreshold] = useState<number>(20);
+  const [minOrderValue, setMinOrderValue] = useState<number>(0);
+  const [settingsSaving, setSettingsSaving] = useState(false);
+  const [settingsSaved, setSettingsSaved] = useState(false);
+
+  // Load inventory settings on mount
+  useEffect(() => {
+    fetchInventorySettings().then(({ data }) => {
+      if (data) {
+        setThreshold(data.low_inventory_threshold);
+        setMinOrderValue(data.min_enrollment_value);
+      }
+    });
+  }, []);
+
+  const handleSaveInventorySettings = async () => {
+    setSettingsSaving(true);
+    setSettingsSaved(false);
+    await updateInventorySettings({
+      low_inventory_threshold: threshold,
+      min_enrollment_value: minOrderValue,
+    });
+    setSettingsSaving(false);
+    setSettingsSaved(true);
+    setTimeout(() => setSettingsSaved(false), 3000);
+  };
 
   // API Keys state
   const [showPublicKey, setShowPublicKey] = useState(false);
@@ -191,13 +220,65 @@ export default function Settings() {
                 <span className="text-xs text-muted-foreground uppercase tracking-wider">Current Inventory</span>
               </div>
               <p className="font-heading text-4xl font-normal">{inventory?.current_count?.toLocaleString() || "—"}</p>
-              <p className="text-sm text-muted-foreground mt-1">stickers available for verification</p>
+            <p className="text-sm text-muted-foreground mt-1">stickers available for verification</p>
             </div>
 
             <div className="bg-card border border-border rounded-2xl p-5">
               <span className="text-xs text-muted-foreground uppercase tracking-wider">Recent Activity</span>
               <p className="font-heading text-4xl font-normal mt-2">{inventory?.recent_transactions?.length || 0}</p>
               <p className="text-sm text-muted-foreground mt-1">recent transactions recorded</p>
+            </div>
+
+            {/* Enrollment Settings */}
+            <div className="bg-card border border-border rounded-2xl p-5">
+              <div className="flex items-center gap-3 mb-5">
+                <Nfc size={20} className="text-muted-foreground" />
+                <span className="text-xs text-muted-foreground uppercase tracking-wider">Enrollment Settings</span>
+              </div>
+
+              <div className="space-y-5">
+                {/* Low inventory threshold */}
+                <div>
+                  <label className="text-xs text-muted-foreground uppercase tracking-wider">Low Inventory Warning Threshold</label>
+                  <p className="text-xs text-muted-foreground mt-1 mb-2">Show a warning banner when sticker count falls below this number.</p>
+                  <div className="flex gap-2 items-center">
+                    <Input
+                      type="number"
+                      min={0}
+                      value={threshold}
+                      onChange={(e) => setThreshold(Number(e.target.value))}
+                      className="w-32"
+                    />
+                    <span className="text-sm text-muted-foreground">stickers</span>
+                  </div>
+                </div>
+
+                {/* Min enrollment value */}
+                <div>
+                  <label className="text-xs text-muted-foreground uppercase tracking-wider">Minimum Order Value</label>
+                  <p className="text-xs text-muted-foreground mt-1 mb-2">Orders below this amount will not be enrolled. Set to 0 to enroll all orders.</p>
+                  <div className="flex gap-2 items-center">
+                    <span className="text-sm text-muted-foreground">$</span>
+                    <Input
+                      type="number"
+                      min={0}
+                      step={0.01}
+                      value={minOrderValue}
+                      onChange={(e) => setMinOrderValue(Number(e.target.value))}
+                      className="w-32"
+                    />
+                  </div>
+                </div>
+
+                <Button
+                  onClick={handleSaveInventorySettings}
+                  disabled={settingsSaving}
+                  size="sm"
+                  className="gap-2"
+                >
+                  {settingsSaving ? "Saving..." : settingsSaved ? "✓ Saved" : "Save Settings"}
+                </Button>
+              </div>
             </div>
           </TabsContent>
 

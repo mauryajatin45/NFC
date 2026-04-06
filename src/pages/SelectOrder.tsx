@@ -1,11 +1,14 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { AppLayout } from "@/components/AppLayout";
 import { PageHeader } from "@/components/PageHeader";
 import { OrderCard } from "@/components/OrderCard";
+import { LowInventoryAlert } from "@/components/LowInventoryAlert";
 import { cn } from "@/lib/utils";
 import { Search, SlidersHorizontal, RefreshCw, Loader2, AlertCircle } from "lucide-react";
 import { useOrders } from "@/hooks/useOrders";
+import { useInventory } from "@/hooks/useInventory";
+import { fetchInventorySettings } from "@/services/api";
 import type { Order } from "@/services/api";
 
 type SortOption = "oldest" | "newest";
@@ -21,9 +24,20 @@ function sortOrders(orders: Order[], sortBy: SortOption): Order[] {
 export default function SelectOrder() {
   const navigate = useNavigate();
   const { data: orders, isLoading, isError, error, refetch, isRefetching } = useOrders();
+  const { data: inventory, isLoading: inventoryLoading } = useInventory();
   
   const [searchQuery, setSearchQuery] = useState("");
   const [sortBy, setSortBy] = useState<SortOption>("newest");
+  const [inventoryThreshold, setInventoryThreshold] = useState<number>(20);
+
+  // Load configurable threshold from settings
+  useEffect(() => {
+    fetchInventorySettings().then(({ data }) => {
+      if (data?.low_inventory_threshold !== undefined) {
+        setInventoryThreshold(data.low_inventory_threshold);
+      }
+    });
+  }, []);
 
   const handleOrderTap = (id: string) => {
     navigate("/enroll-nfc", { state: { orderId: id } });
@@ -48,6 +62,14 @@ export default function SelectOrder() {
     <AppLayout>
       <div className="px-4 py-6 max-w-2xl mx-auto">
         <PageHeader title="Enroll" />
+
+        {/* Inventory alert — shows warning or blocking modal if low/zero */}
+        <LowInventoryAlert
+          remaining={inventory?.current_count ?? 0}
+          total={100}
+          isLoading={inventoryLoading}
+          lowThreshold={inventoryThreshold}
+        />
 
         {/* Search bar */}
         <div className="relative mb-4">

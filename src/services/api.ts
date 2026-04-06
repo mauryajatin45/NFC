@@ -278,3 +278,50 @@ export async function fetchDashboardMetrics(): Promise<{ data?: any, error?: { m
   }
 }
 
+export async function fetchInventorySettings(): Promise<{ data?: { low_inventory_threshold: number; min_enrollment_value: number }, error?: { message: string } }> {
+  try {
+    const PROXY_URL = import.meta.env.VITE_SHOPIFY_APP_URL || "https://shopify-app-250065525755.us-central1.run.app";
+    const token = localStorage.getItem("token");
+    if (!token) throw new Error("Not authenticated");
+
+    const response = await fetch(`${PROXY_URL}/app/api/settings/inventory`, {
+      method: "GET",
+      headers: { "Authorization": `Bearer ${token}`, "Content-Type": "application/json" },
+    });
+
+    if (!response.ok) {
+      const err = await response.json().catch(() => null);
+      throw new Error(err?.error || "Failed to fetch inventory settings");
+    }
+
+    const data = await response.json();
+    return { data };
+  } catch (error: any) {
+    return { error: { message: error.message || "Unable to fetch inventory settings" } };
+  }
+}
+
+export async function updateInventorySettings(
+  settings: { low_inventory_threshold?: number; min_enrollment_value?: number }
+): Promise<{ error?: { message: string } }> {
+  try {
+    const PROXY_URL = import.meta.env.VITE_SHOPIFY_APP_URL || "https://shopify-app-250065525755.us-central1.run.app";
+    const token = localStorage.getItem("token");
+    if (!token) throw new Error("Not authenticated");
+
+    const response = await fetch(`${PROXY_URL}/app/api/settings/inventory`, {
+      method: "POST",
+      headers: { "Authorization": `Bearer ${token}`, "Content-Type": "application/json" },
+      body: JSON.stringify(settings),
+    });
+
+    if (!response.ok) {
+      const err = await response.json().catch(() => null);
+      throw new Error(err?.error || "Failed to update inventory settings");
+    }
+
+    return {};
+  } catch (error: any) {
+    return { error: { message: error.message || "Unable to update inventory settings" } };
+  }
+}
