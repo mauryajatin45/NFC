@@ -294,16 +294,13 @@ export async function fetchInventorySettings(): Promise<{ data?: { low_inventory
       throw new Error(err?.error || "Failed to fetch inventory settings");
     }
 
-    const data = await response.json();
-    return { data };
+    return { data: await response.json() };
   } catch (error: any) {
-    return { error: { message: error.message || "Unable to fetch inventory settings" } };
+    return { error: { message: error.message || "Unable to fetch connect to inventory service" } };
   }
 }
 
-export async function updateInventorySettings(
-  settings: { low_inventory_threshold?: number; min_enrollment_value?: number }
-): Promise<{ error?: { message: string } }> {
+export async function updateInventorySettings(payload: { low_inventory_threshold?: number; min_enrollment_value?: number }): Promise<{ data?: any, error?: { message: string } }> {
   try {
     const PROXY_URL = import.meta.env.VITE_SHOPIFY_APP_URL || "https://shopify-app-250065525755.us-central1.run.app";
     const token = localStorage.getItem("token");
@@ -312,7 +309,7 @@ export async function updateInventorySettings(
     const response = await fetch(`${PROXY_URL}/app/api/settings/inventory`, {
       method: "POST",
       headers: { "Authorization": `Bearer ${token}`, "Content-Type": "application/json" },
-      body: JSON.stringify(settings),
+      body: JSON.stringify(payload),
     });
 
     if (!response.ok) {
@@ -320,8 +317,165 @@ export async function updateInventorySettings(
       throw new Error(err?.error || "Failed to update inventory settings");
     }
 
-    return {};
+    return { data: await response.json() };
   } catch (error: any) {
-    return { error: { message: error.message || "Unable to update inventory settings" } };
+    return { error: { message: error.message || "Unable to connect to inventory service" } };
   }
 }
+
+// =========================================================================
+// M5: Media Settings Endpoints
+// =========================================================================
+
+export async function fetchBrandingMedia(): Promise<{ data?: any[], error?: { message: string } }> {
+  try {
+    const APP_URL = import.meta.env.VITE_SHOPIFY_APP_URL || "https://shopify-app-250065525755.us-central1.run.app";
+    const token = localStorage.getItem('token');
+    if (!token) throw new Error("Not authenticated");
+
+    const response = await fetch(`${APP_URL}/app/api/settings/media`, {
+      method: "GET",
+      headers: { "Authorization": `Bearer ${token}` }
+    });
+
+    if (!response.ok) throw new Error("Failed to fetch media");
+    const json = await response.json();
+    return { data: json.media };
+  } catch (error: any) {
+    return { error: { message: error.message } };
+  }
+}
+
+export async function uploadBrandingMedia(file: File, duration: string): Promise<{ data?: any, error?: { message: string } }> {
+  try {
+    const APP_URL = import.meta.env.VITE_SHOPIFY_APP_URL || "https://shopify-app-250065525755.us-central1.run.app";
+    const token = localStorage.getItem('token');
+    if (!token) throw new Error("Not authenticated");
+
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("duration", duration);
+
+    const response = await fetch(`${APP_URL}/app/api/settings/media`, {
+      method: "POST",
+      headers: { "Authorization": `Bearer ${token}` },
+      body: formData
+    });
+
+    if (!response.ok) throw new Error("Failed to upload media");
+    return { data: await response.json() };
+  } catch (error: any) {
+    return { error: { message: error.message } };
+  }
+}
+
+export async function deleteBrandingMedia(id: string): Promise<{ data?: any, error?: { message: string } }> {
+  try {
+    const APP_URL = import.meta.env.VITE_SHOPIFY_APP_URL || "https://shopify-app-250065525755.us-central1.run.app";
+    const token = localStorage.getItem('token');
+    if (!token) throw new Error("Not authenticated");
+
+    const response = await fetch(`${APP_URL}/app/api/settings/media`, {
+      method: "DELETE",
+      headers: { 
+        "Authorization": `Bearer ${token}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({ id })
+    });
+
+    if (!response.ok) throw new Error("Failed to delete media");
+    return { data: await response.json() };
+  } catch (error: any) {
+    return { error: { message: error.message } };
+  }
+}
+
+export async function updateBrandingMediaMetadata(id: string, updates: any): Promise<{ data?: any, error?: { message: string } }> {
+  try {
+    const APP_URL = import.meta.env.VITE_SHOPIFY_APP_URL || "https://shopify-app-250065525755.us-central1.run.app";
+    const token = localStorage.getItem('token');
+    if (!token) throw new Error("Not authenticated");
+
+    const response = await fetch(`${APP_URL}/app/api/settings/media`, {
+      method: "PATCH",
+      headers: { 
+        "Authorization": `Bearer ${token}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({ updateMetadata: { id, updates } })
+    });
+
+    if (!response.ok) throw new Error("Failed to update metadata");
+    return { data: await response.json() };
+  } catch (error: any) {
+    return { error: { message: error.message } };
+  }
+}
+
+export async function reorderBrandingMedia(reorderedIds: string[]): Promise<{ data?: any, error?: { message: string } }> {
+  try {
+    const APP_URL = import.meta.env.VITE_SHOPIFY_APP_URL || "https://shopify-app-250065525755.us-central1.run.app";
+    const token = localStorage.getItem('token');
+    if (!token) throw new Error("Not authenticated");
+
+    const response = await fetch(`${APP_URL}/app/api/settings/media`, {
+      method: "PATCH",
+      headers: { 
+        "Authorization": `Bearer ${token}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({ reorderedIds })
+    });
+
+    if (!response.ok) throw new Error("Failed to reorder media");
+    return { data: await response.json() };
+  } catch (error: any) {
+    return { error: { message: error.message } };
+  }
+}
+
+export async function setPrimaryBrandingMedia(setPrimaryId: string): Promise<{ data?: any, error?: { message: string } }> {
+  try {
+    const APP_URL = import.meta.env.VITE_SHOPIFY_APP_URL || "https://shopify-app-250065525755.us-central1.run.app";
+    const token = localStorage.getItem('token');
+    if (!token) throw new Error("Not authenticated");
+
+    const response = await fetch(`${APP_URL}/app/api/settings/media`, {
+      method: "PATCH",
+      headers: { 
+        "Authorization": `Bearer ${token}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({ setPrimaryId })
+    });
+
+    if (!response.ok) throw new Error("Failed to set primary media");
+    return { data: await response.json() };
+  } catch (error: any) {
+    return { error: { message: error.message } };
+  }
+}
+
+export async function verifyTag(serialNumber: string): Promise<{ data?: any, error?: { message: string } }> {
+  try {
+    const APP_URL = import.meta.env.VITE_SHOPIFY_APP_URL || "https://shopify-app-250065525755.us-central1.run.app";
+    const response = await fetch(`${APP_URL}/api/verify`, {
+      method: "POST",
+      headers: { 
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({ serial_number: serialNumber, delivery_gps: { lat: 0, lng: 0 } })
+    });
+    
+    if (!response.ok) {
+       const errorData = await response.json().catch(() => null);
+       throw new Error(errorData?.error || "Verification failed");
+    }
+    
+    return { data: await response.json() };
+  } catch (error: any) {
+    return { error: { message: error.message } };
+  }
+}
+

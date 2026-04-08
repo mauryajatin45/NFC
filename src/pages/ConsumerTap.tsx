@@ -2,28 +2,68 @@ import { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { verifyTag } from "../services/api";
 
 export default function ConsumerTap() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
+  const [errorMsg, setErrorMsg] = useState("");
+  const [activeMedia, setActiveMedia] = useState<any>(null);
 
-  // Hardcoded loading phase — swap with real verification logic when ready
+  // Default bumper if merchant didn't upload any media
+  const defaultMediaUrl = "https://storage.googleapis.com/gtv-videos-bucket/sample/TearsOfSteel.mp4";
+
   useEffect(() => {
-    const timer = setTimeout(() => {
-      setLoading(false);
-    }, 2500); // 2.5 second fake load → crossfades into video
-    return () => clearTimeout(timer);
-  }, []);
+    async function loadVerification() {
+      console.log(`[ConsumerTap] Initializing verification for Tag ID: ${id}`);
+      if (!id) {
+         console.warn(`[ConsumerTap] No Tag ID present in URL!`);
+         setErrorMsg("Invalid Tag ID");
+         setLoading(false);
+         return;
+      }
+      const { data, error } = await verifyTag(id);
+      console.log(`[ConsumerTap] verifyTag response:`, { data, error });
 
-  // Test URL — swap in Alan's media URL when ready
-  const testMediaUrl = "https://storage.googleapis.com/gtv-videos-bucket/sample/TearsOfSteel.mp4";
+      if (error) {
+         console.error(`[ConsumerTap] Verification failed:`, error.message);
+         setErrorMsg(error.message);
+      } else if (data) {
+         console.log(`[ConsumerTap] Verification successful! Data payload:`, data);
+         
+         // 1. Try to find the PRIMARY merchant media (the first one in the list based on their settings)
+         if (data.merchant_media && data.merchant_media.length > 0) {
+             console.log(`[ConsumerTap] Found ${data.merchant_media.length} merchant branding items. Setting primary...`);
+             const primary = data.merchant_media[0];
+             setActiveMedia(primary);
+         } 
+         // 2. Fallback to warehouse proof video if branding missing but warehouse captured a video 
+         else if (data.photo_urls && data.photo_urls.length > 0) {
+             // Assume first photo URL might be a video or image. We derive type by extension if not explicitly set.
+             const firstProof = data.photo_urls[0];
+             const isVideo = firstProof.match(/\.(mp4|webm|ogg)$/i);
+             setActiveMedia({ url: firstProof, type: isVideo ? "video" : "image" });
+         } 
+         // 3. Absolute default bumper
+         else {
+             console.log(`[ConsumerTap] No valid media found. Falling back to default INK bumper.`);
+             setActiveMedia({ url: defaultMediaUrl, type: "video" });
+         }
+      }
+      setLoading(false);
+    }
+    loadVerification();
+  }, [id]);
 
   const handleViewRecord = () => {
     if (id) {
       navigate(`/record/${id}`);
     }
   };
+
+  const currentMedia = activeMedia || { url: defaultMediaUrl, type: "video" };
+  const isVideo = currentMedia.type === "video" || currentMedia.url.match(/\.(mp4|webm|ogg)$/i);
 
   return (
     <div className="min-h-screen bg-black text-white flex flex-col items-center justify-center relative overflow-hidden">
@@ -40,21 +80,48 @@ export default function ConsumerTap() {
         <p className="mt-4 text-white/50 text-sm font-medium tracking-wide">VERIFYING AUTHENTICITY...</p>
       </div>
 
+      {/* Error Layer */}
+      {errorMsg && !loading && (
+        <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-black p-6 text-center">
+            <h2 className="text-xl font-bold text-red-500 mb-2">Verification Failed</h2>
+            <p className="text-white/70 mb-6">{errorMsg}</p>
+        </div>
+      )}
+
       {/* Media Layer (Crossfades in after loading) */}
+      {!errorMsg && (
       <div
         className={cn(
           "absolute inset-0 z-0 flex flex-col items-center justify-center bg-black transition-opacity duration-1000",
           !loading ? "opacity-100" : "opacity-0"
         )}
       >
-        <video
-          src={testMediaUrl}
-          className="w-full h-full object-cover opacity-80"
-          autoPlay
-          loop
-          muted
-          playsInline
-        />
+        {isVideo ? (
+           <video
+             key={currentMedia.url}
+             src={currentMedia.url}
+             className="w-full h-full object-cover opacity-80"
+             autoPlay
+             loop
+             muted
+             playsInline
+             onError={() => {
+                 console.error("[ConsumerTap] Primary media failed to load. Falling back...");
+                 setActiveMedia({ url: defaultMediaUrl, type: "video" });
+             }}
+           />
+        ) : (
+           <img 
+             key={currentMedia.url}
+             src={currentMedia.url}
+             className="w-full h-full object-cover opacity-80"
+             alt="Merchant Brand"
+             onError={() => {
+                 console.error("[ConsumerTap] Primary media failed to load. Falling back...");
+                 setActiveMedia({ url: defaultMediaUrl, type: "video" });
+             }}
+           />
+        )}
 
         {/* Overlay UI */}
         <div className="absolute bottom-0 left-0 right-0 p-8 bg-gradient-to-t from-black/90 via-black/50 to-transparent">
@@ -80,6 +147,7 @@ export default function ConsumerTap() {
           </button>
         </div>
       </div>
+      )}
     </div>
   );
 }

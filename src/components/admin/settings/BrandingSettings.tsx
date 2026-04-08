@@ -27,63 +27,7 @@ interface MediaItem {
   isMock?: boolean;
 }
 
-const createMockItems = (): MediaItem[] => [
-  {
-    id: "mock-1",
-    url: "mock:video",
-    name: "brand_intro.mp4",
-    type: "video",
-    duration: "5s",
-    size: "1.2 MB",
-    dimensions: "1080 × 1920",
-    uploadDate: "Feb 28, 2026",
-    isMock: true,
-  },
-  {
-    id: "mock-2",
-    url: "mock:video",
-    name: "unboxing_reveal.mp4",
-    type: "video",
-    duration: "4s",
-    size: "980 KB",
-    dimensions: "1080 × 1920",
-    uploadDate: "Feb 25, 2026",
-    isMock: true,
-  },
-  {
-    id: "mock-3",
-    url: "mock:video",
-    name: "tap_tutorial.mp4",
-    type: "video",
-    duration: "6s",
-    size: "1.5 MB",
-    dimensions: "1080 × 1920",
-    uploadDate: "Feb 20, 2026",
-    isMock: true,
-  },
-  {
-    id: "mock-4",
-    url: "mock:video",
-    name: "product_showcase.mp4",
-    type: "video",
-    duration: "5s",
-    size: "1.1 MB",
-    dimensions: "1080 × 1920",
-    uploadDate: "Feb 18, 2026",
-    isMock: true,
-  },
-  {
-    id: "mock-5",
-    url: "mock:video",
-    name: "thank_you.mp4",
-    type: "video",
-    duration: "3s",
-    size: "720 KB",
-    dimensions: "1080 × 1920",
-    uploadDate: "Feb 15, 2026",
-    isMock: true,
-  },
-];
+// Removed mocked items in favor of real API data.
 
 const MediaRow = ({
   item,
@@ -429,8 +373,19 @@ const MediaRow = ({
   );
 };
 
+import { useEffect } from "react";
+import { 
+  fetchBrandingMedia, 
+  uploadBrandingMedia, 
+  deleteBrandingMedia, 
+  reorderBrandingMedia, 
+  setPrimaryBrandingMedia,
+  updateBrandingMediaMetadata
+} from "../../../services/api";
+
 const BrandingSettings = () => {
-  const [items, setItems] = useState<MediaItem[]>(createMockItems);
+  const [items, setItems] = useState<MediaItem[]>([]);
+  const [loading, setLoading] = useState(true);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [loopVideo, setLoopVideo] = useState(true);
   const [duration, setDuration] = useState(5);
@@ -439,43 +394,48 @@ const BrandingSettings = () => {
   const [guidelinesOpen, setGuidelinesOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const handleFileUpload = (file: File) => {
+  useEffect(() => {
+    async function loadMedia() {
+      console.log(`[BrandingSettings] Fetching merchant media from backend...`);
+      setLoading(true);
+      const { data, error } = await fetchBrandingMedia();
+      if (error) {
+        console.error(`[BrandingSettings] Failed to load media:`, error);
+      } else if (data) {
+        console.log(`[BrandingSettings] Loaded media:`, data);
+        setItems(data);
+      }
+      setLoading(false);
+    }
+    loadMedia();
+  }, []);
+
+  const handleFileUpload = async (file: File) => {
+    console.log(`[BrandingSettings] Initiating upload for file: ${file.name}`);
     const isVideo = file.type.startsWith("video/");
     const isImage = file.type.startsWith("image/");
     if (!isVideo && !isImage) {
       toast({
         title: "Invalid file type",
-        description:
-          "Upload an image (PNG, JPG, WebP) or video (MP4, WebM).",
+        description: "Upload an image (PNG, JPG, WebP) or video (MP4, WebM).",
         variant: "destructive",
       });
       return;
     }
-    const url = URL.createObjectURL(file);
-    const sizeKB = file.size / 1024;
-    const sizeStr =
-      sizeKB >= 1024
-        ? `${(sizeKB / 1024).toFixed(1)} MB`
-        : `${Math.round(sizeKB)} KB`;
-    const now = new Date();
-    const dateStr = now.toLocaleDateString("en-US", {
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-    });
-    setItems((prev) => [
-      ...prev,
-      {
-        id: crypto.randomUUID(),
-        url,
-        name: file.name,
-        type: isVideo ? "video" : "image",
-        duration: isVideo ? `${duration}s` : undefined,
-        size: sizeStr,
-        uploadDate: dateStr,
-      },
-    ]);
-    toast({ description: "Media added", duration: 1500 });
+    
+    toast({ description: "Uploading media...", duration: 2000 });
+    
+    // Optomistically show a placeholder or just wait for the response
+    const { data, error } = await uploadBrandingMedia(file, `${duration}s`);
+    
+    if (error) {
+      console.error(`[BrandingSettings] Upload failed:`, error.message);
+      toast({ title: "Upload Failed", description: error.message, variant: "destructive", duration: 3000 });
+    } else if (data?.success && data.media) {
+      console.log(`[BrandingSettings] Upload successful! Updated media array received.`, data.media);
+      setItems(data.media);
+      toast({ description: "Media added successfully!", duration: 1500 });
+    }
   };
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -484,13 +444,24 @@ const BrandingSettings = () => {
     e.target.value = "";
   };
 
-  const removeItem = (id: string) => {
+  const removeItem = async (id: string) => {
+    // Optimistic UI update
+    const previousItems = [...items];
     setItems((prev) => prev.filter((i) => i.id !== id));
     if (expandedId === id) setExpandedId(null);
-    toast({ description: "Removed", duration: 1500 });
+    
+    const { data, error } = await deleteBrandingMedia(id);
+    if (error) {
+       toast({ title: "Delete Failed", description: error.message, variant: "destructive" });
+       setItems(previousItems); // revert
+    } else {
+       if (data?.media) setItems(data.media);
+       toast({ description: "Removed", duration: 1500 });
+    }
   };
 
-  const setAsPrimary = (id: string) => {
+  const setAsPrimary = async (id: string) => {
+    const previousItems = [...items];
     setItems((prev) => {
       const idx = prev.findIndex((i) => i.id === id);
       if (idx <= 0) return prev;
@@ -499,7 +470,15 @@ const BrandingSettings = () => {
       updated.unshift(moved);
       return updated;
     });
-    toast({ description: "Set as primary", duration: 1500 });
+    
+    const { data, error } = await setPrimaryBrandingMedia(id);
+    if (error) {
+      toast({ title: "Update Failed", description: error.message, variant: "destructive" });
+      setItems(previousItems); // revert
+    } else {
+      if (data?.media) setItems(data.media);
+      toast({ description: "Set as primary", duration: 1500 });
+    }
   };
 
   const makeDragHandlers = (i: number) => ({
@@ -511,15 +490,22 @@ const BrandingSettings = () => {
       e.preventDefault();
       setDragOverIndex(i);
     },
-    onDrop: (e: React.DragEvent) => {
+    onDrop: async (e: React.DragEvent) => {
       e.preventDefault();
       if (dragIndex !== null && dragIndex !== i) {
-        setItems((prev) => {
-          const updated = [...prev];
-          const [moved] = updated.splice(dragIndex, 1);
-          updated.splice(i, 0, moved);
-          return updated;
-        });
+        const updated = [...items];
+        const [moved] = updated.splice(dragIndex, 1);
+        updated.splice(i, 0, moved);
+        setItems(updated);
+        
+        // Persist reorder to backend
+        const { error, data } = await reorderBrandingMedia(updated.map(m => m.id));
+        if (error) {
+           toast({ description: "Failed to reorder", variant: "destructive" });
+           // Could revert here...
+        } else if (data?.media) {
+           setItems(data.media);
+        }
       }
       setDragIndex(null);
       setDragOverIndex(null);
@@ -573,14 +559,27 @@ const BrandingSettings = () => {
               }}
               duration={duration}
               onDurationChange={setDuration}
-              onDurationCommit={() =>
+              onDurationCommit={async () => {
                 toast({
-                  description: `Duration set to ${duration}s`,
-                  duration: 1500,
-                })
-              }
+                  description: `Saving duration...`,
+                  duration: 1000,
+                });
+                const { error, data } = await updateBrandingMediaMetadata(item.id, { duration: `${duration}s` });
+                if (!error && data?.media) setItems(data.media);
+              }}
             />
           ))}
+          
+          {items.length === 0 && !loading && (
+             <div className="p-8 text-center text-muted-foreground text-sm">
+                No media uploaded. Add videos or images below.
+             </div>
+          )}
+          {loading && items.length === 0 && (
+             <div className="p-8 text-center text-muted-foreground text-sm animate-pulse">
+                Loading media...
+             </div>
+          )}
 
           {/* Add Media row */}
           <button
