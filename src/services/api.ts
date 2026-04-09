@@ -324,6 +324,55 @@ export async function updateInventorySettings(payload: { low_inventory_threshold
 }
 
 // =========================================================================
+// M6: Notification Settings Endpoints
+// =========================================================================
+
+export async function fetchNotificationSettings(): Promise<{ data?: any, error?: { message: string } }> {
+  try {
+    const PROXY_URL = import.meta.env.VITE_SHOPIFY_APP_URL || "https://shopify-app-250065525755.us-central1.run.app";
+    const token = localStorage.getItem("token");
+    if (!token) throw new Error("Not authenticated");
+
+    const response = await fetch(`${PROXY_URL}/app/api/settings/notifications`, {
+      method: "GET",
+      headers: { "Authorization": `Bearer ${token}` }
+    });
+
+    if (!response.ok) {
+      const err = await response.json().catch(() => null);
+      throw new Error(err?.error || "Failed to fetch notification settings");
+    }
+
+    return { data: await response.json() };
+  } catch (error: any) {
+    return { error: { message: error.message || "Unable to connect to notification service" } };
+  }
+}
+
+export async function updateNotificationSettings(payload: any): Promise<{ data?: any, error?: { message: string } }> {
+  try {
+    const PROXY_URL = import.meta.env.VITE_SHOPIFY_APP_URL || "https://shopify-app-250065525755.us-central1.run.app";
+    const token = localStorage.getItem("token");
+    if (!token) throw new Error("Not authenticated");
+
+    const response = await fetch(`${PROXY_URL}/app/api/settings/notifications`, {
+      method: "POST",
+      headers: { "Authorization": `Bearer ${token}`, "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+
+    if (!response.ok) {
+      const err = await response.json().catch(() => null);
+      throw new Error(err?.error || "Failed to update notification settings");
+    }
+
+    return { data: await response.json() };
+  } catch (error: any) {
+    return { error: { message: error.message || "Unable to connect to notification service" } };
+  }
+}
+
+// =========================================================================
 // M5: Media Settings Endpoints
 // =========================================================================
 

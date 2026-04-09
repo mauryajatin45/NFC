@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   BlockStack,
   Card,
@@ -10,6 +10,7 @@ import {
   Layout,
 } from "@shopify/polaris";
 import { toast } from "@/hooks/use-toast";
+import { fetchNotificationSettings, updateNotificationSettings } from "@/services/api";
 
 const CommunicationSettings = () => {
   const [channels, setChannels] = useState({ email: true, sms: false });
@@ -29,18 +30,48 @@ const CommunicationSettings = () => {
   });
   const [returnWindow, setReturnWindow] = useState("30");
 
+  useEffect(() => {
+    let mounted = true;
+    fetchNotificationSettings().then(({ data, error }) => {
+      if (!mounted) return;
+      if (error) {
+        toast({ description: "Failed to load notification settings", variant: "destructive" });
+      } else if (data?.settings) {
+        setChannels(data.settings.channels || { email: true, sms: false });
+        setDelivery(data.settings.delivery || { outForDelivery: true, delivered: true, deliveryConfirmed: false });
+        setReminders(data.settings.reminders || { hours4: true, hours24: true, hours48: false });
+        setReturnReminders(data.settings.returnReminders || { days7: true, hours48: false });
+        setReturnWindow(data.settings.returnWindow || "30");
+      }
+    });
+    return () => { mounted = false; };
+  }, []);
+
+  const saveSettings = async (newSettings: any) => {
+    const { error } = await updateNotificationSettings(newSettings);
+    if (error) {
+       toast({ description: "Failed to save settings", variant: "destructive", duration: 2000 });
+    }
+  };
+
   const toggle = <T extends Record<string, boolean>>(
     setter: React.Dispatch<React.SetStateAction<T>>,
+    stateProp: "channels" | "delivery" | "reminders" | "returnReminders",
     key: keyof T,
     label: string
   ) => {
     setter((prev) => {
       const newVal = !prev[key];
+      const updatedState = { ...prev, [key]: newVal };
       toast({
         description: `${label} ${newVal ? "enabled" : "disabled"}`,
         duration: 1500,
       });
-      return { ...prev, [key]: newVal };
+      saveSettings({
+        channels, delivery, reminders, returnReminders, returnWindow,
+        [stateProp]: updatedState
+      });
+      return updatedState;
     });
   };
 
@@ -74,14 +105,14 @@ const CommunicationSettings = () => {
           <BlockStack gap="400">
             <ToggleRow
               checked={channels.email}
-              onToggle={() => toggle(setChannels, "email", "Email notifications")}
+              onToggle={() => toggle(setChannels, "channels", "email", "Email notifications")}
               title="Email"
               description="Send notifications via email."
             />
             <Divider />
             <ToggleRow
               checked={channels.sms}
-              onToggle={() => toggle(setChannels, "sms", "SMS notifications")}
+              onToggle={() => toggle(setChannels, "channels", "sms", "SMS notifications")}
               title="SMS"
               description="Send notifications via text message."
             />
@@ -101,7 +132,7 @@ const CommunicationSettings = () => {
             <ToggleRow
               checked={delivery.outForDelivery}
               onToggle={() =>
-                toggle(setDelivery, "outForDelivery", "Out for delivery")
+                toggle(setDelivery, "delivery", "outForDelivery", "Out for delivery")
               }
               title="Out for delivery"
               description="Notify when carrier scan shows package is out for delivery."
@@ -110,7 +141,7 @@ const CommunicationSettings = () => {
             <ToggleRow
               checked={delivery.delivered}
               onToggle={() =>
-                toggle(setDelivery, "delivered", "Delivered notification")
+                toggle(setDelivery, "delivery", "delivered", "Delivered notification")
               }
               title="Delivered"
               description="Notify when carrier confirms delivery. Includes tap instructions."
@@ -119,7 +150,7 @@ const CommunicationSettings = () => {
             <ToggleRow
               checked={delivery.deliveryConfirmed}
               onToggle={() =>
-                toggle(setDelivery, "deliveryConfirmed", "Delivery confirmed")
+                toggle(setDelivery, "delivery", "deliveryConfirmed", "Delivery confirmed")
               }
               title="Delivery confirmed"
               description="Confirmation sent after customer taps."
@@ -136,7 +167,7 @@ const CommunicationSettings = () => {
           <BlockStack gap="400">
             <ToggleRow
               checked={reminders.hours4}
-              onToggle={() => toggle(setReminders, "hours4", "4-hour reminder")}
+              onToggle={() => toggle(setReminders, "reminders", "hours4", "4-hour reminder")}
               title="4 hours after delivery"
               description="First reminder."
             />
@@ -144,7 +175,7 @@ const CommunicationSettings = () => {
             <ToggleRow
               checked={reminders.hours24}
               onToggle={() =>
-                toggle(setReminders, "hours24", "24-hour reminder")
+                toggle(setReminders, "reminders", "hours24", "24-hour reminder")
               }
               title="24 hours after delivery"
               description="Second reminder."
@@ -153,7 +184,7 @@ const CommunicationSettings = () => {
             <ToggleRow
               checked={reminders.hours48}
               onToggle={() =>
-                toggle(setReminders, "hours48", "48-hour reminder")
+                toggle(setReminders, "reminders", "hours48", "48-hour reminder")
               }
               title="48 hours after delivery"
               description="Final tap reminder."
@@ -171,7 +202,7 @@ const CommunicationSettings = () => {
             <ToggleRow
               checked={returnReminders.days7}
               onToggle={() =>
-                toggle(setReturnReminders, "days7", "7-day return reminder")
+                toggle(setReturnReminders, "returnReminders", "days7", "7-day return reminder")
               }
               title="7 days before return window closes"
               description="Early reminder. Includes return link."
@@ -180,7 +211,7 @@ const CommunicationSettings = () => {
             <ToggleRow
               checked={returnReminders.hours48}
               onToggle={() =>
-                toggle(setReturnReminders, "hours48", "48-hour return reminder")
+                toggle(setReturnReminders, "returnReminders", "hours48", "48-hour return reminder")
               }
               title="48 hours before return window closes"
               description='"Your return window closes in 2 days."'
@@ -204,6 +235,7 @@ const CommunicationSettings = () => {
                 description: `Return window set to ${v} days`,
                 duration: 1500,
               });
+              saveSettings({ channels, delivery, reminders, returnReminders, returnWindow: v });
             }}
             options={[
               { label: "14 days", value: "14" },
