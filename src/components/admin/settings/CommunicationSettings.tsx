@@ -240,7 +240,6 @@ const CommunicationSettings = () => {
             options={[
               { label: "14 days", value: "14" },
               { label: "30 days", value: "30" },
-              { label: "45 days", value: "45" },
               { label: "60 days", value: "60" },
               { label: "90 days", value: "90" },
             ]}
