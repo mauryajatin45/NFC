@@ -18,7 +18,11 @@ export function PageHeader({ title }: PageHeaderProps) {
   }, [location]);
 
   const handleBack = () => {
-    navigate(-1);
+    if (location.pathname.startsWith("/settings")) {
+      navigate("/dashboard");
+    } else {
+      navigate(-1);
+    }
   };
 
   return (

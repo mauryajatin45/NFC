@@ -506,7 +506,7 @@ export async function setPrimaryBrandingMedia(setPrimaryId: string): Promise<{ d
   }
 }
 
-export async function verifyTag(serialNumber: string): Promise<{ data?: any, error?: { message: string } }> {
+export async function verifyTag(serialNumber: string, lat: number = 0, lng: number = 0): Promise<{ data?: any, error?: { message: string } }> {
   try {
     const APP_URL = import.meta.env.VITE_SHOPIFY_APP_URL || "https://shopify-app-250065525755.us-central1.run.app";
     const response = await fetch(`${APP_URL}/api/verify`, {
@@ -514,7 +514,7 @@ export async function verifyTag(serialNumber: string): Promise<{ data?: any, err
       headers: { 
         "Content-Type": "application/json"
       },
-      body: JSON.stringify({ serial_number: serialNumber, delivery_gps: { lat: 0, lng: 0 } })
+      body: JSON.stringify({ serial_number: serialNumber, delivery_gps: { lat, lng } })
     });
     
     if (!response.ok) {

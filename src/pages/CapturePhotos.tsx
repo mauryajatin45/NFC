@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import LoadingOverlay from "../components/LoadingOverlay";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || "https://shopify-app-250065525755.us-central1.run.app";
-const MAX_FILES = 10;
+
 
 export default function CapturePhotos() {
   const navigate = useNavigate();
@@ -64,15 +64,10 @@ export default function CapturePhotos() {
 
   const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(event.target.files || []);
-    if (mediaFiles.length + files.length > MAX_FILES) { 
-      alert(`Maximum ${MAX_FILES} attachments allowed`); 
-      return; 
-    }
-    
     try {
       const processed = await Promise.all(files.map(compressImage));
       
-      const newFiles = [...mediaFiles, ...processed].slice(0, MAX_FILES);
+      const newFiles = [...mediaFiles, ...processed];
       setMediaFiles(newFiles);
       
       // Use URL.createObjectURL which is instantaneous and consumes virtually 0 memory
@@ -225,7 +220,7 @@ export default function CapturePhotos() {
         </svg>
         <div className="step active">
           <div className="step-number">2</div>
-          <div className="step-label">{mediaFiles.length > 0 ? `${mediaFiles.length}/${MAX_FILES}` : "Media"}</div>
+          <div className="step-label">{mediaFiles.length > 0 ? `${mediaFiles.length} Added` : "Media"}</div>
         </div>
         <svg className="step-arrow" viewBox="0 0 12 12">
           <path d="M4 2L8 6L4 10" stroke="currentColor" strokeWidth="1.5" fill="none" strokeLinecap="round" strokeLinejoin="round" />
@@ -248,7 +243,7 @@ export default function CapturePhotos() {
         <h1 className="photos-title">Capture Media</h1>
         <p className="photos-subtitle">
           {mediaFiles.length > 0 
-            ? `${mediaFiles.length} of ${MAX_FILES} attached` 
+            ? `${mediaFiles.length} attached` 
             : "Tap here to capture photos or videos"}
         </p>
 
@@ -282,7 +277,7 @@ export default function CapturePhotos() {
             </div>
           ))}
 
-          {mediaFiles.length < MAX_FILES && (
+
             <div
               className="photo-box next-empty"
               onClick={triggerFileInput}
@@ -293,7 +288,6 @@ export default function CapturePhotos() {
                 <line x1="5" y1="12" x2="19" y2="12" />
               </svg>
             </div>
-          )}
         </div>
 
         <p className="photo-helper-text" style={{ marginTop: "16px" }}>

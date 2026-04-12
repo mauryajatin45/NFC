@@ -1,5 +1,5 @@
 import { AppLayout } from "@/components/AppLayout";
-import { PageHeader } from "@/components/PageHeader";
+
 import { useInventory } from "@/hooks/useInventory";
 import { useOrders } from "@/hooks/useOrders";
 import { Loader2, Package, Nfc, CheckCircle, Clock, Zap } from "lucide-react";
@@ -17,7 +17,7 @@ export default function Dashboard() {
   return (
     <AppLayout>
       <div className="px-4 py-6 max-w-2xl mx-auto">
-        <PageHeader title="Dashboard" />
+
 
         {/* Global Verification Map in white card */}
         <div className="bg-card border border-border rounded-2xl p-5 mb-4">

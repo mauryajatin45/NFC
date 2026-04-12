@@ -12,5 +12,6 @@ export function useInventory() {
       return response.data!;
     },
     staleTime: 60 * 1000, // 1 minute
+    refetchInterval: 5000, // Poll every 5 seconds for live updates
   });
 }

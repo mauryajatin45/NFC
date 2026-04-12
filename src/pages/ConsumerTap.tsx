@@ -23,7 +23,24 @@ export default function ConsumerTap() {
          setLoading(false);
          return;
       }
-      const { data, error } = await verifyTag(id);
+
+      let gps = { lat: 0, lng: 0 };
+      try {
+         const pos = await new Promise<GeolocationPosition>((resolve, reject) => {
+             navigator.geolocation.getCurrentPosition(resolve, reject, { 
+                 timeout: 8000, 
+                 maximumAge: 0,
+                 enableHighAccuracy: true 
+             });
+         });
+         gps.lat = pos.coords.latitude;
+         gps.lng = pos.coords.longitude;
+         console.log(`[ConsumerTap] Captured active GPS position:`, gps);
+      } catch (err: any) {
+         console.warn(`[ConsumerTap] GPS capture failed/denied (using defaults):`, err.message);
+      }
+
+      const { data, error } = await verifyTag(id, gps.lat, gps.lng);
       console.log(`[ConsumerTap] verifyTag response:`, { data, error });
 
       if (error) {
