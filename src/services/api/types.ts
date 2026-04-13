@@ -66,6 +66,7 @@ export interface Order {
   currencySymbol?: string;
   shippingStatus?: string;
   shippingColor?: string;
+  orderNumber?: number;  // Sequential store order number e.g. 1019, 1020 (from Shopify's orderNumber field)
 }
 
 export interface OrderItem {

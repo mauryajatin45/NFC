@@ -344,7 +344,7 @@ export default function EnrollNfc() {
         order_id: orderId,
         nfc_token: nfcToken,
         nfc_uid: scannedUid,
-        order_number: (orderDetails?.name || orderId).replace(/^#/, ""),
+        order_number: String(orderDetails?.orderNumber || (orderDetails?.name || orderId).replace(/^#/, "")),
         customer_email: orderDetails?.customer?.email || location.state?.customerEmail || "unknown@example.com",
         customer_phone: orderDetails?.customer?.phone || location.state?.customerPhone,
         shipping_address: orderDetails?.shippingAddress || location.state?.shippingAddress || {
